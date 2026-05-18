@@ -1,1 +1,3 @@
-google-genai\nstreamlit\n
+streamlit
+pypdf
+google-generativeai
