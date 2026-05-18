@@ -137,7 +137,7 @@ with st.sidebar:
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
-# পেজ রিলোড হলেও চ্যাট হিস্ট্রি স্ক্রিনে রাখার লজিক
+# পেজ রিলোড বা নতুন ক্লিকেও চ্যাট হিস্ট্রি স্ক্রিনে রাখার লজিক
 for message in st.session_state["messages"]:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
