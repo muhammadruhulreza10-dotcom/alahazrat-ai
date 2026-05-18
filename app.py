@@ -77,8 +77,8 @@ st.markdown(f"""
         direction: rtl !important;
         text-align: right !important;
         font-family: 'Traditional Arabic', 'Amiri', 'Noto Naskh Arabic', sans-serif !important;
-        font-size: 1.55rem !important;
-        line-height: 2.2 !important;
+        font-size: 1.65rem !important;
+        line-height: 2.3 !important;
         color: #0F4C3A !important;
         background-color: #F7FAFC !important;
         padding: 15px;
@@ -114,7 +114,7 @@ st.markdown("""
 api_key = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=api_key)
 
-# Function to read ALL PDFs deeply
+# Function to read ALL PDFs with advanced character normalization
 @st.cache_resource
 def load_all_kitabs_text():
     kitabs_dict = {}
@@ -134,7 +134,9 @@ def load_all_kitabs_text():
                 text = page.extract_text()
                 if text:
                     book_text += text + "\n"
-            kitabs_dict[file_name] = book_text if book_text.strip() else "[সংযুক্ত কিতাব]"
+            
+            cleaned_text = " ".join(book_text.split())
+            kitabs_dict[file_name] = cleaned_text if cleaned_text.strip() else "[সংযুক্ত মোবারক কিতাব]"
         except Exception as e:
             continue
             
@@ -142,6 +144,10 @@ def load_all_kitabs_text():
 
 # Load books
 kitab_data, available_books = load_all_kitabs_text()
+
+# --- CHAT HISTORY & CONTEXT SYSTEM ---
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
 
 # --- SIDEBAR DESIGN ---
 with st.sidebar:
@@ -153,19 +159,23 @@ with st.sidebar:
         st.write("❌ কোনো কিতাব পাওয়া যায়নি।")
         
     st.markdown("---")
+    
+    # 🕒 চ্যাট হিস্ট্রি রিস্টার্ট বা ডিলিট করার বাটন
+    st.markdown('<div class="sidebar-header">🕒 চ্যাট মেমোরি কন্ট্রোল</div>', unsafe_allow_html=True)
+    if st.button("🗑️ নতুন করে চ্যাট শুরু করুন (Clear History)", use_container_width=True):
+        st.session_state["messages"] = []
+        st.rerun()
+        
+    st.markdown("---")
     st.markdown('<div class="sidebar-header">💡 ব্যবহার বিধি</div>', unsafe_allow_html=True)
     st.info(
         "১. নিচে থাকা চ্যাট বক্সে আপনার প্রশ্নটি বাংলায় লিখুন।\n\n"
-        "২. ইবারত বা উদ্ধৃতি প্রয়োজন হলে প্রশ্নে উল্লেখ করুন (যেমন: ইবারতসহ বলুন)।"
+        "২. ইবারত বা কুরআনের মূল আয়াত প্রয়োজন হলে প্রশ্নে উল্লেখ করুন (যেমন: আয়াত/ইবারতসহ বলুন)।"
     )
     st.markdown("---")
     st.caption("Developed with ❤️ for Islamic Research")
 
-# --- CHAT HISTORY & CONTEXT SYSTEM ---
-if "messages" not in st.session_state:
-    st.session_state["messages"] = []
-
-# আগের মেসেজ স্ক্রিনে রাখা
+# আগের মেসেজ স্ক্রিনে রেন্ডার রাখা
 for message in st.session_state["messages"]:
     with st.chat_message(message["role"]):
         st.write(message["content"], unsafe_allow_html=True)
@@ -180,18 +190,18 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
     with st.chat_message("assistant"):
         with st.spinner("কিতাবখানা থেকে উত্তর খোঁজা হচ্ছে..."):
             try:
-                # কঠোর এবং চূড়ান্ত শক্তিশালী গাইডলাইন
+                # চূড়ান্ত শক্তিশালী গাইডলাইন (ভাঙা ফন্ট অটো-কারেকশন সহ)
                 system_instruction = (
-                    "তুমি একজন অত্যন্ত প্রজ্ঞাবান, বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার কাজ হলো নিচে দেওয়া কিতাবগুলোর তথ্যের ওপর ভিত্তি করে সর্বোচ্চ শক্তিশালী ও জ্ঞানগর্ভ উত্তর দেওয়া।\n\n"
-                    "গুরুত্বপূর্ণ কার্যপ্রণালী নিয়মাবলী:\n"
+                    "তুমি একজন অত্যন্ত প্রজ্ঞাবান, বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার দায়িত্ব হলো নিচে দেওয়া কিতাবগুলোর তথ্যের আলোকে সর্বোচ্চ শক্তিশালী ও জ্ঞানগর্ভ উত্তর দেওয়া।\n\n"
+                    "কঠোর কার্যপ্রণালী নিয়মাবলী:\n"
                     "১. প্রতিটি কিতাবের কন্টেন্ট আলাদাভাবে এবং গভীরভাবে স্ক্যান করবে যাতে কোনো তথ্য বাদ না পড়ে।\n"
-                    "২. কোনো মনগড়া, আনুমানিক, কাল্পনিক বা ভুল তথ্য (Hallucination) দেওয়া সম্পূর্ণ নিষিদ্ধ। তথ্যের সত্যতা বজায় রাখা তোমার প্রধান কর্তব্য।\n"
-                    "৩. ইবারত প্রদানের নিয়ম: ব্যবহারকারী যদি তার প্রশ্নে স্পষ্টভাবে 'আরবি ইবারত দিন', 'উর্দু ইবারত দিন', 'মূল উদ্ধৃতি দিন' বা এই জাতীয় কোনো অনুরোধ করে, কেবল তখনই তুমি মূল কিতাবের টেক্সট প্রদান করবে। ব্যবহারকারী নিজে থেকে না চাইলে স্বয়ংক্রিয়ভাবে ইবারত দেওয়ার প্রয়োজন নেই, শুধু বাংলায় স্পষ্ট উত্তর দিলেই হবে।\n"
-                    "৪. যতটুকু ইবারত চাওয়া হবে, ঠিক ততটুকুই নিখুঁতভাবে দিবে। ইবারত দেওয়ার সময় কোনো অক্ষর বা শব্দের সিকুয়েন্স যাতে ওলটপালট বা রিভার্স (উল্টো) না হয় সেদিকে কঠোর নজর রাখবে।\n"
-                    "৫. ইবারতটি দেখানোর সময় বাধ্যতামূলকভাবে এই HTML ট্যাগের ভেতরে রাখবে: <div class='arabic-ur-ibarath'>মূল ইবারত এখানে</div>। এতে লেখাটি ডান দিক থেকে শুরু হবে।\n"
+                    "২. কোনো মনগড়া, আনুমানিক বা ভুল তথ্য (Hallucination) দেওয়া সম্পূর্ণ নিষিদ্ধ।\n"
+                    "৩. ফন্ট ও আয়াত কারেকশন লজিক: পিডিএফ ফাইলের টেক্সটে যদি কোনো কুরআনের আয়াত বা হাদিসের টেক্সট ভেঙে গিয়ে অদ্ভুত চিহ্ন বা ভুল কোড (যেমন: a!$# â'θçP ইত্যাদি) আকারে থাকে, তবে তুমি তোমার নিজস্ব অভ্যন্তরীণ ইসলামিক জ্ঞান ভাণ্ডার ব্যবহার করে সেই আয়াত বা উদ্ধৃতির হুবহু আসল ও শুদ্ধ রূপটি (Original Correct Arabic/Urdu Text) পুনরুদ্ধার করে প্রদান করবে। কোনো অবস্থাতেই স্ক্রিনে ভাঙা বা অদ্ভুত কোড দেখানো যাবে না।\n"
+                    "৪. ইবারত নিয়ন্ত্রণের নিয়ম: ব্যবহারকারী যদি তার প্রশ্নে স্পষ্টভাবে 'আরби ইবারত দিন', 'উর্দু ইবারত দিন', 'মূল আয়াত দিন' বা এই জাতীয় কোনো অনুরোধ করে, কেবল তখনই তুমি মূল কিতাবের টেক্সট প্রদান করবে। ব্যবহারকারী নিজে থেকে ইবারত না চাইলে স্বয়ংক্রিয়ভাবে ইবারত দেওয়ার প্রয়োজন নেই, শুধু বাংলায় মজবুত ও সঠিক উত্তর দিলেই হবে।\n"
+                    "৫. যতটুকু ইবারত বা আয়াত চাওয়া হবে, ঠিক ততটুকুই নিখুঁতভাবে দিবে। ইবারতটি দেখানোর সময় বাধ্যতামূলকভাবে এই HTML ট্যাগের ভেতরে রাখবে: <div class='arabic-ur-ibarath'>শুদ্ধ ইবারত/আয়াত এখানে</div>। এতে লেখাটি ডান দিক থেকে শুরু হবে।\n"
                     "৬. মূল ইবারতের ঠিক নিচেই তার সাবলীল বাংলা অনুবাদ এই ট্যাগের ভেতর দিবে: <div class='bengali-translation'>বাংলা অনুবাদ এখানে</div>।\n"
                     "৭. যদি উত্তর কিতাবগুলোর কোনোটিতেই না থাকে, তবে বানোয়াট কিছু না বলে বলবে: 'দুঃখিত, এই তথ্যটি বর্তমান কিতাবসমূহে খুঁজে পাওয়া যায়নি।'\n"
-                    "৮. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে একজন আন্তরিক সহযাত্রীর মতো কথা বলবে।"
+                    "৮. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে কথা বলবে।"
                 )
                 
                 # চ্যাট ইতিহাস সাজানো
@@ -207,13 +217,13 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
                 
                 current_prompt = f"কিতাবসমূহের মূল তথ্যভাণ্ডার:\n{all_kitabs_context}\n\nব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}"
                 
-                # জেমিনি মডেল রান করা (সর্বোচ্চ নির্ভুলতার জন্য temperature=0.2 করা হয়েছে)
+                # জেমিনি মডেল রান করা (সর্বোচ্চ নির্ভুলতার জন্য temperature=0.1 করা হয়েছে)
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
                     contents=history_data + [types.Content(role="user", parts=[types.Part.from_text(text=current_prompt)])],
                     config=types.GenerateContentConfig(
                         system_instruction=system_instruction,
-                        temperature=0.2
+                        temperature=0.1
                     )
                 )
                 
