@@ -72,7 +72,7 @@ st.markdown(f"""
         border: 1px solid rgba(15, 76, 58, 0.15) !important;
     }}
     
-    /* আরবি ও উর্দু ফন্ট এবং ডান দিক থেকে শুরু করার বিশেষ ব্যবস্থা */
+    /* আরবি ও উর্দু ইবারত ডান দিক থেকে শুরু করার বিশেষ সিএসএস ক্লাসরুম */
     .arabic-ur-ibarath {{
         direction: rtl !important;
         text-align: right !important;
@@ -84,6 +84,7 @@ st.markdown(f"""
         padding: 12px;
         border-radius: 6px;
         border-right: 4px solid #0F4C3A;
+        margin-top: 10px;
         margin-bottom: 10px;
     }}
     .bengali-translation {{
@@ -99,8 +100,8 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # App Title & Description
-st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">📚 ⁠ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
 
 # --- URDU SHER SECTION ---
 st.markdown("""
@@ -158,30 +159,10 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Developed with ❤️ for Islamic Research")
 
-# --- CHAT HISTORY & MEMORY SYSTEM ---
+# --- 🛠️ 100% WORKING CHAT HISTORY & CONTEXT SYSTEM ---
+# স্ক্রিনে মেসেজ সেভ রাখার মূল সেশন স্টেট
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
-
-if "chat_session" not in st.session_state:
-    # এআই-কে এইচটিএমএল ফরম্যাটে ইবারত সাজানোর জন্য নির্দেশনা আপগ্রেড করা হয়েছে
-    system_instruction = (
-        "তুমি একজন অত্যন্ত প্রজ্ঞাবান, বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার মূল দায়িত্ব হলো নিচে দেওয়া কিতাবসমূহের তথ্যের আলোকে একদম নির্ভুল উত্তর দেওয়া।\n\n"
-        "নিচের শর্তগুলো কঠোরভাবে মেনে চলতে হবে:\n"
-        "১. ব্যবহারকারীর প্রশ্নের পেছনের আসল উদ্দেশ্য (Intent) এবং মনের ভাব খুব গভীরভাবে অনুধাবন করার চেষ্টা করো।\n"
-        "২. কোনো অবস্থাতেই কোনো মনগড়া, আনুমানিক, কাল্পনিক বা ভুল তথ্য (Misinformation/Hallucination) দেওয়া যাবে না।\n"
-        "৩. ব্যবহারকারী কিতাব সংক্রান্ত কোনো মাসআলা বা উদ্ধৃতি জিজ্ঞেস করলেই, কিতাবে থাকা মূল আরবি অথবা উর্দু ইবারত (Original Text) অবশ্যই প্রদান করবে।\n"
-        "৪. ইবারতটি সুন্দরভাবে দেখানোর জন্য সেটিকে বাধ্যতামূলকভাবে এই HTML ট্যাগের ভেতরে রাখবে: <div class='arabic-ur-ibarath'>মূল আরবি/উর্দু ইবারত এখানে লিখবে</div>। এতে লেখাটি স্বয়ংক্রিয়ভাবে ডান দিক থেকে শুরু হবে।\n"
-        "৫. মূল ইবারতের ঠিক নিচেই সহজ-সরল বাংলায় অনুবাদ প্রদান করবে এবং অনুবাদটিকে এই HTML ট্যাগের ভেতরে রাখবে: <div class='bengali-translation'>বাংলা অনুবাদ এখানে লিখবে</div>।\n"
-        "৬. যদি কোনো প্রশ্নের উত্তর নিচে দেওয়া কিতাবসমূহের তথ্যের মধ্যে না থাকে, তবে কোনো মনগড়া ব্যাখ্যা না দিয়ে অত্যন্ত বিনয়ের সাথে বলবে: 'দুঃখিত, এই তথ্যটি বর্তমান কিতাবসমূহে খুঁজে পাওয়া যায়নি।'\n"
-        "৭. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে কথা বলবে।"
-    )
-    
-    st.session_state["chat_session"] = client.chats.create(
-        model="gemini-2.5-flash",
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction
-        )
-    )
 
 # আগের কথাগুলো স্ক্রিনে রেন্ডার রাখা
 for message in st.session_state["messages"]:
@@ -191,20 +172,50 @@ for message in st.session_state["messages"]:
 # নতুন প্রশ্ন ইনপুট নেওয়া
 if prompt := st.chat_input("আলা হযরতের কিতাবসমূহ সম্পর্কে যেকোনো প্রশ্ন লিখুন..."):
     
+    # ব্যবহারকারীর প্রশ্ন স্ক্রিনে দেখানো এবং হিস্ট্রিতে সেভ করা
     st.session_state["messages"].append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt, unsafe_allow_html=True)
 
+    # এআই এর উত্তর তৈরি করা
     with st.chat_message("assistant"):
         with st.spinner("কিতাবখানা থেকে উত্তর খোঁজা হচ্ছে..."):
             try:
-                full_message = f"কিতাবসমূহের মূল তথ্যভাণ্ডার:\n{kitab_context}\n\nব্যবহারকারীর প্রশ্ন: {prompt}"
+                # কঠোর সিস্টেম গাইডলাইন
+                system_instruction = (
+                    "তুমি একজন অত্যন্ত প্রজ্ঞাবান, বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার মূল দায়িত্ব হলো নিচে দেওয়া কিতাবসমূহের তথ্যের আলোকে একদম নির্ভুল উত্তর দেওয়া।\n\n"
+                    "নিচের শর্তগুলো কঠোরভাবে মেনে চলতে হবে:\n"
+                    "১. ব্যবহারকারীর প্রশ্নের পেছনের আসল উদ্দেশ্য (Intent) এবং মনের ভাব খুব গভীরভাবে অনুধাবন করার চেষ্টা করো।\n"
+                    "২. কোনো অবস্থাতেই কোনো মনগড়া, আনুমানিক, কাল্পনিক বা ভুল তথ্য (Misinformation/Hallucination) দেওয়া যাবে না।\n"
+                    "৩. ব্যবহারকারী কিতাব সংক্রান্ত কোনো মাসআলা বা উদ্ধৃতি জিজ্ঞেস করলেই, কিতাবে থাকা মূল আরবি অথবা উর্দু ইবারত (Original Text) অবশ্যই প্রদান করবে।\n"
+                    "৪. ইবারতটি সুন্দরভাবে দেখানোর জন্য সেটিকে বাধ্যতামূলকভাবে এই HTML ট্যাগের ভেতরে রাখবে: <div class='arabic-ur-ibarath'>মূল আরবি/উর্দু ইবারত এখানে লিখবে</div>। এতে লেখাটি স্বয়ংক্রিয়ভাবে ডান দিক থেকে শুরু হবে।\n"
+                    "৫. মূল ইবারতের ঠিক নিচেই সহজ-সরল বাংলায় অনুবাদ প্রদান করবে এবং অনুবাদটিকে এই HTML ট্যাগের ভেতরে রাখবে: <div class='bengali-translation'>বাংলা অনুবাদ এখানে লিখবে</div>।\n"
+                    "৬. যদি কোনো প্রশ্নের উত্তর নিচে দেওয়া কিতাবসমূহের তথ্যের মধ্যে না থাকে, তবে কোনো মনগড়া ব্যাখ্যা না দিয়ে অত্যন্ত বিনয়ের সাথে বলবে: 'দুঃখিত, এই তথ্যটি বর্তমান কিতাবসমূহে খুঁজে পাওয়া যায়নি।'\n"
+                    "৭. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে কথা বলবে।"
+                )
                 
-                response = st.session_state["chat_session"].send_message(full_message)
+                # চ্যাট ইতিহাসকে সুন্দর ফরম্যাটে গুছিয়ে এআই-এর মেমোরিতে পাঠানো
+                history_data = []
+                for msg in st.session_state["messages"][:-1]:
+                    role_type = "user" if msg["role"] == "user" else "model"
+                    history_data.append(types.Content(role=role_type, parts=[types.Part.from_text(text=msg["content"])]))
                 
-                # স্ক্রিনে উত্তর দেখানো (HTML এলাউ করে, যাতে ডানদিক থেকে ইবারত শুরু হয়)
+                # কিতাবের তথ্য এবং বর্তমান প্রশ্নকে মূল প্রম্পট হিসেবে পাঠানো
+                current_prompt = f"কিতাবসমূহের মূল তথ্যভাণ্ডার:\n{kitab_context}\n\nব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}"
+                
+                # জেমিনি মডেল রান করা (হিস্ট্রি এবং কিতাবের কন্টেন্ট সহ)
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=history_data + [types.Content(role="user", parts=[types.Part.from_text(text=current_prompt)])],
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction
+                    )
+                )
+                
+                # স্ক্রিনে উত্তর দেখানো
                 st.write(response.text, unsafe_allow_html=True)
                 
+                # এআই এর উত্তর চ্যাট হিস্ট্রিতে সেভ করা
                 st.session_state["messages"].append({"role": "assistant", "content": response.text})
                 
             except Exception as e:
