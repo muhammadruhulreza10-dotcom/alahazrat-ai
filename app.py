@@ -8,10 +8,10 @@ import glob
 # Page configuration
 st.set_page_config(page_title="আলা হযরত এআই কিতাবখানা", page_icon="📚", layout="centered")
 
-# ভেক্টরস্টকের সেই মাজার শরীফের ডিরেক্ট ইমেজ লিংক
+# মাজার শরীফের ডিরেক্ট ইমেজ লিংক
 image_url = "https://images.vectorstock.com/preview-w850/22/21/ala-hazrat-tomb-ahmed-raza-khan-bareilly-vector-27702122.jpg"
 
-# --- CUSTOM CSS FOR FULL LIGHT MODE & ONLINE BACKGROUND IMAGE ---
+# --- CUSTOM CSS FOR FULL LIGHT MODE, BACKGROUND IMAGE & RTL TEXT ---
 st.markdown(f"""
     <style>
     html, body, [data-testid="stAppViewContainer"], .stApp {{
@@ -57,6 +57,7 @@ st.markdown(f"""
         text-align: center !important;
         white-space: normal !important;
         line-height: 1.8;
+        direction: rtl !important;
     }}
     .sidebar-header {{
         font-size: 1.1rem;
@@ -70,14 +71,38 @@ st.markdown(f"""
         background-color: rgba(255, 255, 255, 0.9) !important;
         border: 1px solid rgba(15, 76, 58, 0.15) !important;
     }}
+    
+    /* আরবি ও উর্দু ফন্ট এবং ডান দিক থেকে শুরু করার বিশেষ ব্যবস্থা */
+    .arabic-ur-ibarath {{
+        direction: rtl !important;
+        text-align: right !important;
+        font-family: 'Traditional Arabic', 'Amiri', 'Arial', sans-serif !important;
+        font-size: 1.45rem !important;
+        line-height: 2.0 !important;
+        color: #0F4C3A !important;
+        background-color: #F7FAFC !important;
+        padding: 12px;
+        border-radius: 6px;
+        border-right: 4px solid #0F4C3A;
+        margin-bottom: 10px;
+    }}
+    .bengali-translation {{
+        direction: ltr !important;
+        text-align: left !important;
+        font-size: 1.05rem !important;
+        line-height: 1.6 !important;
+        color: #2D3748 !important;
+        margin-top: 5px;
+        margin-bottom: 15px;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
 # App Title & Description
 st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
 
-# --- URDU SHER SECTION (বিশুদ্ধ উর্দু শের) ---
+# --- URDU SHER SECTION ---
 st.markdown("""
     <div class="urdu-sher-container">
         <div class="urdu-text">ملکِ سخن کی شاہی تم کو رضاؔ مسلم<br>جس سمت آ گئے ہو سکے بٹھا دیے ہیں</div>
@@ -133,56 +158,53 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Developed with ❤️ for Islamic Research")
 
-# --- CHAT INTERFACE WITH SAVED MEMORY SYSTEM ---
+# --- CHAT HISTORY & MEMORY SYSTEM ---
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
-# পেজ রিলোড বা নতুন ক্লিকেও চ্যাট হিস্ট্রি স্ক্রিনে রাখার লজিক
+if "chat_session" not in st.session_state:
+    # এআই-কে এইচটিএমএল ফরম্যাটে ইবারত সাজানোর জন্য নির্দেশনা আপগ্রেড করা হয়েছে
+    system_instruction = (
+        "তুমি একজন অত্যন্ত প্রজ্ঞাবান, বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার মূল দায়িত্ব হলো নিচে দেওয়া কিতাবসমূহের তথ্যের আলোকে একদম নির্ভুল উত্তর দেওয়া।\n\n"
+        "নিচের শর্তগুলো কঠোরভাবে মেনে চলতে হবে:\n"
+        "১. ব্যবহারকারীর প্রশ্নের পেছনের আসল উদ্দেশ্য (Intent) এবং মনের ভাব খুব গভীরভাবে অনুধাবন করার চেষ্টা করো।\n"
+        "২. কোনো অবস্থাতেই কোনো মনগড়া, আনুমানিক, কাল্পনিক বা ভুল তথ্য (Misinformation/Hallucination) দেওয়া যাবে না।\n"
+        "৩. ব্যবহারকারী কিতাব সংক্রান্ত কোনো মাসআলা বা উদ্ধৃতি জিজ্ঞেস করলেই, কিতাবে থাকা মূল আরবি অথবা উর্দু ইবারত (Original Text) অবশ্যই প্রদান করবে।\n"
+        "৪. ইবারতটি সুন্দরভাবে দেখানোর জন্য সেটিকে বাধ্যতামূলকভাবে এই HTML ট্যাগের ভেতরে রাখবে: <div class='arabic-ur-ibarath'>মূল আরবি/উর্দু ইবারত এখানে লিখবে</div>। এতে লেখাটি স্বয়ংক্রিয়ভাবে ডান দিক থেকে শুরু হবে।\n"
+        "৫. মূল ইবারতের ঠিক নিচেই সহজ-সরল বাংলায় অনুবাদ প্রদান করবে এবং অনুবাদটিকে এই HTML ট্যাগের ভেতরে রাখবে: <div class='bengali-translation'>বাংলা অনুবাদ এখানে লিখবে</div>।\n"
+        "৬. যদি কোনো প্রশ্নের উত্তর নিচে দেওয়া কিতাবসমূহের তথ্যের মধ্যে না থাকে, তবে কোনো মনগড়া ব্যাখ্যা না দিয়ে অত্যন্ত বিনয়ের সাথে বলবে: 'দুঃখিত, এই তথ্যটি বর্তমান কিতাবসমূহে খুঁজে পাওয়া যায়নি।'\n"
+        "৭. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে কথা বলবে।"
+    )
+    
+    st.session_state["chat_session"] = client.chats.create(
+        model="gemini-2.5-flash",
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction
+        )
+    )
+
+# আগের কথাগুলো স্ক্রিনে রেন্ডার রাখা
 for message in st.session_state["messages"]:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        st.write(message["content"], unsafe_allow_html=True)
 
-# নতুন প্রশ্ন ইনপুট
+# নতুন প্রশ্ন ইনপুট নেওয়া
 if prompt := st.chat_input("আলা হযরতের কিতাবসমূহ সম্পর্কে যেকোনো প্রশ্ন লিখুন..."):
     
     st.session_state["messages"].append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.write(prompt, unsafe_allow_html=True)
 
     with st.chat_message("assistant"):
         with st.spinner("কিতাবখানা থেকে উত্তর খোঁজা হচ্ছে..."):
             try:
-                # কঠোর গাইডলাইন ও হিস্ট্রি রিডিং মেমোরি
-                system_instruction = (
-                    "তুমি একজন অত্যন্ত প্রজ্ঞাবান, বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার কাজ হলো নিচে দেওয়া কিতাবসমূহের তথ্যের ওপর ভিত্তি করে ব্যবহারকারীর প্রশ্নের উত্তর দেওয়া।\n\n"
-                    "তোমার চিন্তাভাবনা ও উত্তর দেওয়ার ক্ষেত্রে নিচের শর্তগুলো কঠোরভাবে অনুসরণ করতে হবে:\n"
-                    "১. ব্যবহারকারীর প্রশ্নের পেছনের আসল উদ্দেশ্য (Intent) এবং মনের ভাব খুব গভীরভাবে অনুধাবন করার চেষ্টা করো, ঠিক যেভাবে একজন অভিজ্ঞ শিক্ষক তার ছাত্রের মনের কথা বোঝেন।\n"
-                    "২. কোনো অবস্থাতেই কোনো মনগড়া, আনুমানিক, কাল্পনিক বা ভুল তথ্য (Misinformation/Hallucination) দেওয়া যাবে না। তথ্যের সত্যতা ও গ্রহণযোগ্যতা বজায় রাখা তোমার প্রধান কর্তব্য।\n"
-                    "৩. ব্যবহারকারী কিতাব সংক্রান্ত কোনো মাসআলা বা উদ্ধৃতি জিজ্ঞেস করলেই, কিতাবে থাকা মূল আরবি অথবা উর্দু ইবারত (Original Text) হুবহু তুলে ধরবে।\n"
-                    "৪. মূল ইবারতটি দেওয়ার পাশাপাশি তার ঠিক নিচেই সহজ-সরল, স্পষ্ট এবং সাবলীল বাংলা অনুবাদ (Bengali Translation) প্রদান করবে।\n"
-                    "৫. যদি কোনো প্রশ্নের উত্তর নিচে দেওয়া কিতাবসমূহের মূল তথ্যের মধ্যে না থাকে, তবে কোনো মনগড়া ব্যাখ্যা না দিয়ে অত্যন্ত বিনয়ের সাথে বলবে: 'দুঃখিত, এই তথ্যটি বর্তমান কিতাবসমূহে খুঁজে পাওয়া যায়নি।' বানিয়ে কিছু বলা সম্পূর্ণ নিষিদ্ধ।\n"
-                    "৬. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে একজন আন্তরিক ও গভীর জ্ঞানী সহযাত্রীর মতো কথা বলবে।"
-                )
+                full_message = f"কিতাবসমূহের মূল তথ্যভাণ্ডার:\n{kitab_context}\n\nব্যবহারকারীর প্রশ্ন: {prompt}"
                 
-                # চ্যাট ইতিহাস ফরম্যাট করা
-                history_context = ""
-                for msg in st.session_state["messages"][:-1]:
-                    role_label = "ব্যবহারকারী" if msg["role"] == "user" else "এআই"
-                    history_context += f"{role_label}: {msg['content']}\n"
+                response = st.session_state["chat_session"].send_message(full_message)
                 
-                full_prompt = (
-                    f"সিস্টেম গাইডলাইন (এটি কঠোরভাবে অনুসরণীয়):\n{system_instruction}\n\n"
-                    f"কিতাবসমূহের মূল তথ্যভাণ্ডার:\n{kitab_context}\n\n"
-                    f"এতক্ষণের চ্যাটের ইতিহাস:\n{history_context}\n"
-                    f"ব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}"
-                )
+                # স্ক্রিনে উত্তর দেখানো (HTML এলাউ করে, যাতে ডানদিক থেকে ইবারত শুরু হয়)
+                st.write(response.text, unsafe_allow_html=True)
                 
-                response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=full_prompt,
-                )
-                
-                st.markdown(response.text)
                 st.session_state["messages"].append({"role": "assistant", "content": response.text})
                 
             except Exception as e:
