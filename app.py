@@ -8,15 +8,15 @@ import glob
 # Page configuration
 st.set_page_config(page_title="আলা হযরত এআই কিতাবখানা", page_icon="📚", layout="centered")
 
-# --- CUSTOM CSS FOR YOUR IMAGE AND SPECIFIC URDU SHER ---
+# --- CUSTOM CSS WITH YOUR NEW BACKGROUND IMAGE ---
 st.markdown("""
     <style>
-    /* আপনার দেওয়া ছবিটিকে ব্যাকগ্রাউন্ডে জলছাপ হিসেবে সেট করার কোড */
+    /* আপনার দেওয়া নতুন ছবিটিকে ব্যাকগ্রাউন্ডে একদম হালকা জলছাপ হিসেবে সেট করার কোড */
     .stApp {
-        background-image: linear-gradient(rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.94)), 
-                          url("https://raw.githubusercontent.com/muhammadruhulreza10-dotcom/alahazrat-ai/main/12375.png");
-        background-size: auto 60%; /* ছবিটির সাইজ সুন্দরভাবে ফিট করার জন্য */
-        background-position: center;
+        background-image: linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), 
+                          url("https://cdn1.vectorstock.com/i/1000x1000/21/22/ala-hazrat-tomb-ahmed-raza-khan-bareilly-vector-27702122.jpg");
+        background-size: auto 65%; /* ছবিটির সাইজ সুন্দরভাবে মাঝখানে ফিট করার জন্য */
+        background-position: center 60%;
         background-repeat: no-repeat;
         background-attachment: fixed;
     }
@@ -72,7 +72,7 @@ st.markdown("""
 
 # App Title & Description
 st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allowed_html=True)
 
 # --- YOUR CHOSEN URDU SHER SECTION ---
 st.markdown("""
