@@ -15,7 +15,7 @@ client = genai.Client(api_key=api_key)
 # Function to read PDF text directly using PyPDF
 @st.cache_resource
 def load_kitab_text():
-    file_path = "kitab.pdf" # Make sure your PDF file name matches this exactly in GitHub
+    file_path = "kitab.pdf" # গিটহাবে আপনার পিডিএফ বইটির নাম যেন ঠিক এইরকম থাকে
     if os.path.exists(file_path):
         reader = PdfReader(file_path)
         text = ""
@@ -35,7 +35,8 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-if prompt := st.chat_message_input("আলা হযরতের কিতাব সম্পর্কে যেকোনো প্রশ্ন লিখুন..."):
+# এখানে ভুলটি শুধরে st.chat_input করা হয়েছে
+if prompt := st.chat_input("আলা হযরতের কিতাব সম্পর্কে যেকোনো প্রশ্ন লিখুন..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
