@@ -1,6 +1,5 @@
 import streamlit as st
 from google import genai
-from google.genai import types
 import os
 from pypdf import PdfReader
 import glob
@@ -113,7 +112,7 @@ st.markdown("""
 api_key = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=api_key)
 
-# কিতাবের ডাটা প্যারাগ্রাফ বা পৃষ্ঠা আকারে লোড করার স্মার্ট ফাংশন
+# কিতাবের ডাটা পৃষ্ঠা আকারে লোড করার স্মার্ট ফাংশন
 @st.cache_resource
 def load_all_kitabs_chunks():
     chunks_dict = {}
@@ -133,7 +132,6 @@ def load_all_kitabs_chunks():
                 text = page.extract_text()
                 if text and text.strip():
                     cleaned_page_text = " ".join(text.split())
-                    # প্রতিটি পৃষ্ঠার টেক্সট আলাদা চাঙ্ক হিসেবে সেভ করা হচ্ছে
                     chunks_dict[file_name].append({
                         "page": page_num + 1,
                         "text": cleaned_page_text
@@ -146,13 +144,12 @@ def load_all_kitabs_chunks():
 # Load books chunks
 kitab_chunks, available_books = load_all_kitabs_chunks()
 
-# ইউজারের প্রশ্নের কিওয়ার্ডের ওপর ভিত্তি করে প্রাসঙ্গিক পাতা খুঁজে বের করার সার্চ ইঞ্জিন
-def retrieve_relevant_context(query, chunks_data, top_n=5):
+# কিওয়ার্ডের ওপর ভিত্তি করে প্রাসঙ্গিক পাতা খুঁজে বের করার সার্চ ইঞ্জিন
+def retrieve_relevant_context(query, chunks_data, top_n=4):
     relevant_segments = ""
     query_words = [word.lower() for word in query.split() if len(word) > 2]
     
     if not query_words:
-        # কিওয়ার্ড না থাকলে ব্যাকআপ হিসেবে প্রথম কয়েক পাতা
         for b_name, pages in chunks_data.items():
             for p in pages[:2]:
                 relevant_segments += f"[{b_name} - পৃষ্ঠা {p['page']}]: {p['text']}\n\n"
@@ -165,7 +162,6 @@ def retrieve_relevant_context(query, chunks_data, top_n=5):
             if score > 0:
                 matched_chunks.append((score, b_name, p['page'], p['text']))
                 
-    # সবচেয়ে বেশি মিল পাওয়া পৃষ্ঠাগুলো শর্ট করা
     matched_chunks.sort(key=lambda x: x[0], reverse=True)
     
     for score, b_name, p_num, p_text in matched_chunks[:top_n]:
@@ -217,42 +213,37 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
     with st.chat_message("assistant"):
         with st.spinner("কিতাবখানা থেকে উত্তর খোঁজা হচ্ছে..."):
             try:
-                # স্মার্টলি কিতাব থেকে শুধু প্রাসঙ্গিক অংশটুকু ফিল্টার করে আনা হচ্ছে
+                # কিতাব থেকে প্রাসঙ্গিক অংশটুকু ফিল্টার করে আনা হচ্ছে
                 relevant_context = retrieve_relevant_context(prompt, kitab_chunks)
                 
-                system_instruction = (
-                    "তুমি একজন অত্যন্ত প্রজ্ঞাবান, বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার দায়িত্ব হলো নিচে দেওয়া নির্দিষ্ট কিতাবের তথ্যের আলোকে সর্বোচ্চ শক্তিশালী ও জ্ঞানগর্ভ উত্তর দেওয়া।\n\n"
-                    "কঠোর কার্যপ্রণালী নিয়মাবলী:\n"
-                    "১. তোমাকে যে প্রাসঙ্গিক কন্টেন্টটুকু দেওয়া হবে, সেটিকে গভীরভাবে স্ক্যান করে উত্তর তৈরি করবে।\n"
-                    "২. কোনো মনগড়া, আনুমানিক বা ভুল তথ্য (Hallucination) দেওয়া সম্পূর্ণ নিষিদ্ধ।\n"
-                    "৩. ফন্ট ও আয়াত কারেকশন লজিক: কন্টেন্টের টেক্সটে যদি কোনো কুরআনের আয়াত বা হাদিসের টেক্সট ভেঙে গিয়ে অদ্ভুত চিহ্ন বা ভুল কোড (যেমন: a!$# â'θçP ইত্যাদি) আকারে থাকে, তবে তুমি তোমার নিজস্ব অভ্যন্তরীণ ইসলামিক জ্ঞান ভাণ্ডার ব্যবহার করে সেই আয়াত বা উদ্ধৃতির হুবহু আসল ও শুদ্ধ রূপটি (Original Correct Arabic/Urdu Text) পুনরুদ্ধার করে প্রদান করবে। কোনো অবস্থাতেই স্ক্রিনে ভাঙা বা অদ্ভুত কোড দেখানো যাবে না।\n"
-                    "４. ইবারত নিয়ন্ত্রণের নিয়ম: ব্যবহারকারী যদি তার প্রশ্নে স্পষ্টভাবে 'আরবি ইবারত দিন', 'উর্দু ইবারত দিন', 'মূল আয়াত দিন' বা এই জাতীয় কোনো অনুরোধ করে, কেবল তখনই তুমি মূল কিতাবের টেক্সট প্রদান করবে। ব্যবহারকারী নিজে থেকে ইবারত না চাইলে স্বয়ংক্রিয়ভাবে ইবারত দেওয়ার প্রয়োজন নেই, শুধু বাংলায় মজবুত ও সঠিক উত্তর দিলেই হবে।\n"
-                    "৫. যতটুকু ইবারত বা আয়াত চাওয়া হবে, ঠিক ততটুকুই নিখুঁতভাবে দিবে। ইবারতটি দেখানোর সময় বাধ্যতামূলকভাবে এই HTML ট্যাগের ভেতরে রাখবে: <div class='arabic-ur-ibarath'>শুদ্ধ ইবারত/আয়াত এখানে</div>। এতে লেখাটি ডান দিক থেকে শুরু হবে।\n"
-                    "৬. মূল ইবারতের ঠিক নিচেই তার সাবলীল বাংলা অনুবাদ এই ট্যাগের ভেতর দিবে: <div class='bengali-translation'>বাংলা অনুবাদ এখানে</div>।\n"
-                    "৭. যদি উত্তর সরবরাহকৃত তথ্যে না থাকে, তবে বানোয়াট কিছু না বলে বলবে: 'দুঃখিত, এই তথ্যটি বর্তমান কিতাবসমূহে খুঁজে পাওয়া যায়নি।'\n"
-                    "৮. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে কথা বলবে।"
+                # চ্যাট কন্টেক্সট ইতিহাস স্ট্রিং আকারে তৈরি করা (টাইপ ক্র্যাশ এড়াতে)
+                chat_history_str = ""
+                for msg in st.session_state["messages"][-4:-1]:
+                    role_name = "ইউজার" if msg["role"] == "user" else "সহকারী"
+                    chat_history_str += f"{role_name}: {msg['content']}\n"
+
+                # চূড়ান্ত প্রম্পট ডিজাইন
+                final_prompt = (
+                    "তুমি একজন প্রজ্ঞাবান এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। নিচের নির্দেশনাবলী মেনে চলো:\n\n"
+                    f"পূর্ববর্তী চ্যাট ইতিহাস:\n{chat_history_str}\n"
+                    f"কিতাবসমূহ থেকে ফিল্টার করা প্রাসঙ্গিক তথ্য:\n{relevant_context}\n"
+                    f"ব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}\n\n"
+                    "নিয়মাবলী:\n"
+                    "১. সরবরাহকৃত প্রাসঙ্গিক তথ্যের আলোকেই শুধু উত্তর দেবে। বানিয়ে কিছু বলবে না।\n"
+                    "২. পিডিএফ-এর ভাঙা ফন্ট (যেমন: a!$# â'θçP ইত্যাদি) স্ক্রিনে দেখাবে না। তোমার জ্ঞান থেকে শুদ্ধ আরবি আয়াতটি পুনরুদ্ধার করে দেখাবে।\n"
+                    "৩. ব্যবহারকারী নিজে থেকে 'আয়াত' বা 'ইবারত' না চাইলে অযথা বড় আরবি টেক্সট দেবে না, শুধু বাংলায় সাবলীল উত্তর দেবে।\n"
+                    "৪. আয়াত বা ইবারত দিলে তা বাধ্যতামূলকভাবে <div class='arabic-ur-ibarath'>শুদ্ধ টেক্সট</div> এবং তার নিচে <div class='bengali-translation'>অনুবাদ</div> আকারে সাজিয়ে দেবে।"
                 )
                 
-                # মেমোরির জন্য শেষ ৩টি মেসেজের হিস্ট্রি পাঠানো (যাতে আগের প্রম্পট ওভারলোড না হয়)
-                history_data = []
-                for msg in st.session_state["messages"][-4:-1]:
-                    role_type = "user" if msg["role"] == "user" else "model"
-                    history_data.append(types.Content(role=role_type, parts=[types.Part.from_text(text=msg["content"])]))
-                
-                current_prompt = f"কিতাবসমূহ থেকে ফিল্টার করা প্রাসঙ্গিক তথ্যভাণ্ডার:\n{relevant_context}\n\nব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}"
-                
-                # জেমিনি মডেল রান করা
+                # জেমিনি মডেল রান (সরাসরি টেক্সট কন্টেন্ট পাস করা হচ্ছে)
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
-                    contents=history_data + [types.Content(role="user", parts=[types.Part.from_text(text=current_prompt)])],
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        temperature=0.1
-                    )
+                    contents=final_prompt
                 )
                 
-                st.write(response.text, unsafe_allow_html=True)
-                st.session_state["messages"].append({"role": "assistant", "content": response.text})
+                output_text = response.text
+                st.write(output_text, unsafe_allow_html=True)
+                st.session_state["messages"].append({"role": "assistant", "content": output_text})
                 
             except Exception as e:
-                st.error("দুঃখিত, উত্তর তৈরিতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।")
+                st.error("দুঃখিত, সিস্টেম লোড নিতে পারছে না। অনুগ্রহ করে সাইডবার থেকে 'Clear History' বাটনে ক্লিক করে আবার চেষ্টা করুন।")
