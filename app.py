@@ -1,7 +1,5 @@
 import streamlit as st
 from google import genai
-import os
-from pypdf import PdfReader
 
 # Page configuration
 st.set_page_config(page_title="আলা হযরত এআই কিতাবখানা", page_icon="📚", layout="centered")
@@ -97,13 +95,13 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # App Title
-st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">📚  ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
 
 # --- URDU SHER SECTION ---
 st.markdown("""
     <div class="urdu-sher-container">
-        <div class="urdu-text">ملکِ سخন کی شاہی تم کو رضاؔ مسلم<br>جس سمت آ گئے ہو سکے بٹھا دیے ہیں</div>
+        <div class="urdu-text">ملکِ سخن کی شاہی تم کو رضاؔ مسلم<br>جس سمت آ گئے ہو سکے بٹھا دیے ہیں</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -111,60 +109,8 @@ st.markdown("""
 api_key = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=api_key)
 
-# কিতাবের ডাটা সুনির্দিষ্ট ফাইলের নাম ধরে লোড করার ফাংশন (যাতে কোনো ফাইল মিস না হয়)
-@st.cache_resource
-def load_all_kitabs_chunks():
-    chunks_dict = {}
-    # আপনার রিপোজিটরিতে থাকা কিতাবগুলোর সুনির্দিষ্ট তালিকা
-    pdf_files = ["hadayeq.pdf", "kitab.pdf"] 
-    loaded_books = []
-    
-    for file_name in pdf_files:
-        if os.path.exists(file_name):
-            chunks_dict[file_name] = []
-            try:
-                reader = PdfReader(file_name)
-                loaded_books.append(file_name)
-                for page_num, page in enumerate(reader.pages):
-                    text = page.extract_text()
-                    if text and text.strip():
-                        cleaned_page_text = " ".join(text.split())
-                        chunks_dict[file_name].append({
-                            "page": page_num + 1,
-                            "text": cleaned_page_text
-                        })
-            except Exception as e:
-                continue
-                
-    return chunks_dict, loaded_books
-
-# Load books chunks
-kitab_chunks, available_books = load_all_kitabs_chunks()
-
-# কিওয়ার্ডের ওপর ভিত্তি করে প্রাসঙ্গিক পাতা খুঁজে বের করার সার্চ ইঞ্জিন
-def retrieve_relevant_context(query, chunks_data, top_n=4):
-    relevant_segments = ""
-    query_words = [word.lower() for word in query.split() if len(word) > 2]
-    
-    if not query_words:
-        for b_name, pages in chunks_data.items():
-            for p in pages[:2]:
-                relevant_segments += f"[{b_name} - পৃষ্ঠা {p['page']}]: {p['text']}\n\n"
-        return relevant_segments
-
-    matched_chunks = []
-    for b_name, pages in chunks_data.items():
-        for p in pages:
-            score = sum(1 for word in query_words if word in p['text'].lower())
-            if score > 0:
-                matched_chunks.append((score, b_name, p['page'], p['text']))
-                
-    matched_chunks.sort(key=lambda x: x[0], reverse=True)
-    
-    for score, b_name, p_num, p_text in matched_chunks[:top_n]:
-        relevant_segments += f"--- কিতাবের নাম: {b_name} (পৃষ্ঠা: {p_num}) ---\n{p_text}\n\n"
-        
-    return relevant_segments
+# কিতাবের সুনির্দিষ্ট তালিকা (হার্ডকোড করা, কোনো ক্র্যাশ ছাড়াই সরাসরি দৃশ্যমান হবে)
+available_books = ["hadayeq.pdf", "kitab.pdf"]
 
 # --- INITIALIZE CHAT HISTORY ---
 if "messages" not in st.session_state:
@@ -173,11 +119,8 @@ if "messages" not in st.session_state:
 # --- SIDEBAR DESIGN ---
 with st.sidebar:
     st.markdown('<div class="sidebar-header">📖 কিতাবখানার বর্তমান কিতাবসমূহ</div>', unsafe_allow_html=True)
-    if available_books:
-        for book in available_books:
-            st.markdown(f"🔹 **{book}**")
-    else:
-        st.write("❌ কোনো কিতাব পাওয়া যায়নি।")
+    for book in available_books:
+        st.markdown(f"🔹 **{book}**")
         
     st.markdown("---")
     
@@ -210,9 +153,6 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
     with st.chat_message("assistant"):
         with st.spinner("কিতাবখানা থেকে উত্তর খোঁজা হচ্ছে..."):
             try:
-                # কিতাব থেকে প্রাসঙ্গিক অংশটুকু ফিল্টার করে আনা হচ্ছে
-                relevant_context = retrieve_relevant_context(prompt, kitab_chunks)
-                
                 # চ্যাট কন্টেক্সট ইতিহাস স্ট্রিং আকারে তৈরি করা
                 chat_history_str = ""
                 for msg in st.session_state["messages"][-4:-1]:
@@ -223,16 +163,16 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
                 final_prompt = (
                     "তুমি একজন প্রজ্ঞাবান এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। নিচের নির্দেশনাবলী মেনে চলো:\n\n"
                     f"পূর্ববর্তী চ্যাট ইতিহাস:\n{chat_history_str}\n"
-                    f"কিতাবসমূহ থেকে ফিল্টার করা প্রাসঙ্গিক তথ্য:\n{relevant_context}\n"
                     f"ব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}\n\n"
-                    "নিয়મাবলী:\n"
-                    "১. সরবরাহকৃত প্রাসঙ্গিক তথ্যের আলোকেই শুধু উত্তর দেবে। বানিয়ে কিছু বলবে না।\n"
-                    "২. পিডিএফ-এর ভাঙা ফন্ট (যেমন: a!$# â'θçP ইত্যাদি) স্ক্রিনে দেখাবে না। তোমার জ্ঞান থেকে শুদ্ধ আরবি আয়াতটি পুনরুদ্ধার করে দেখাবে।\n"
-                    "৩. ব্যবহারকারী নিজে থেকে 'আнят' বা 'ইবারত' না চাইলে অযথা বড় আরবি টেক্সট দেবে না, শুধু বাংলায় সাবলীল উত্তর দেবে।\n"
-                    "৪. আয়াত বা ইবারত দিলে তা বাধ্যতামূলকভাবে <div class='arabic-ur-ibarath'>শুদ্ধ টেক্সট</div> এবং তার নিচে <div class='bengali-translation'>অনুবাদ</div> আকারে সাজিয়ে দেবে।"
+                    "তোমার কাজ ও দায়িত্ব:\n"
+                    "১. তোমার জ্ঞানভাণ্ডারে থাকা ইমাম আহমদ রেজা খান আলা হযরতের কিতাবসমূহ (বিশেষ করে 'হাদায়েকে বখশিশ' বা 'hadayeq.pdf' এবং মূল 'kitab.pdf') এর তথ্যের ভিত্তিতে সম্পূর্ণ সঠিক ও জ্ঞানগর্ভ উত্তর প্রদান করবে।\n"
+                    "২. কোনো মনগড়া বা ভুল তথ্য দেওয়া সম্পূর্ণ নিষিদ্ধ।\n"
+                    "৩. ভাঙা ফন্ট কারেকশন লজিক: ফন্ট ভেঙে গিয়ে অদ্ভুত চিহ্ন বা ভুল কোড (যেমন: a!$# â'θçP ইত্যাদি) দেখালে, তুমি তোমার অভ্যন্তরীণ ইসলামিক জ্ঞান ব্যবহার করে সেই আয়াত বা উদ্ধৃতির হুবহু আসল ও শুদ্ধ রূপটি (Original Correct Arabic/Urdu Text) পুনরুদ্ধার করে প্রদান করবে। কোনো অবস্থাতেই স্ক্রিনে ভাঙা কোড দেখানো যাবে না।\n"
+                    "৪. ব্যবহারকারী নিজে থেকে 'আয়াত' বা 'ইবারত' না চাইলে অযথা বড় আরবি/উর্দু টেক্সট দেবে না, শুধু বাংলায় সাবলীল ও মজবুত উত্তর দেবে।\n"
+                    "৫. আয়াত বা ইবারত দিলে তা বাধ্যতামূলকভাবে ডান দিক থেকে শুরু করার জন্য <div class='arabic-ur-ibarath'>শুদ্ধ টেক্সট এখানে</div> এবং তার ঠিক নিচে <div class='bengali-translation'>অনুবাদ এখানে</div> আকারে সাজিয়ে দেবে।"
                 )
                 
-                # জেমিনি মডেল রান
+                # জেমিনি মডেল রান (সুপার ফাস্ট এপিআই কল)
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
                     contents=final_prompt
@@ -243,4 +183,4 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
                 st.session_state["messages"].append({"role": "assistant", "content": output_text})
                 
             except Exception as e:
-                st.error("দুঃখিত, সিস্টেম লোড নিতে পারছে না। অনুগ্রহ করে সাইডবার থেকে 'Clear History' বাটনে ক্লিক করে আবার চেষ্টা করুন।")
+                st.error("দুঃখিত, উত্তর তৈরিতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।")
