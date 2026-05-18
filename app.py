@@ -20,17 +20,29 @@ def get_base64_image(image_path):
 image_file = "12375.png"
 img_base64 = get_base64_image(image_file)
 
-# --- CUSTOM CSS FOR DESIGN & BACKGROUND ---
+# --- CUSTOM CSS FOR ENTIRE TRANSPARENT THEME & BACKGROUND ---
 if img_base64:
     st.markdown(f"""
         <style>
+        /* পুরো অ্যাপের ব্যাকগ্রাউন্ডে জলছাপ হিসেবে মাজার শরীফের ছবি */
         .stApp {{
-            background-image: linear-gradient(rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.94)), 
+            background-image: linear-gradient(rgba(255, 255, 255, 0.93), rgba(255, 255, 255, 0.93)), 
                               url("data:image/png;base64,{img_base64}");
-            background-size: auto 55%;
-            background-position: center 65%;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
+            background-size: auto 65% !important;
+            background-position: center 60% !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
+        }}
+        
+        /* স্ট্রিমলিটের ভেতরের কন্টেন্ট ব্লকগুলোকে স্বচ্ছ (Transparent) করার কোড */
+        .stAppHeader, .stMainBlockContainer, .stBlock, [data-testid="stHeader"] {{
+            background-color: transparent !important;
+        }}
+        
+        /* চ্যাট মেসেজ বক্স এবং ইন্টারফেসকে ছবির ওপর ভাসিয়ে তোলার জন্য স্বচ্ছতা */
+        [data-testid="stChatMessage"] {{
+            background-color: rgba(255, 255, 255, 0.6) !important;
+            border: 1px solid rgba(15, 76, 58, 0.1) !important;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -83,14 +95,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# App Title & Description (সব জায়গায় unsafe_allow_html=True নিশ্চিত করা হয়েছে)
+# App Title & Description
 st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
 
 # --- URDU SHER SECTION ---
 st.markdown("""
     <div class="urdu-sher-container">
-        <div class="urdu-text">مُلکِ سُخَن کی شاہی تم کو رضاؔ مُسلَّم<br>جس سَمْت آ گئے ہو سِکّے بٹھا دیے ہیں</div>
+        <div class="urdu-text">مُلکِ سُخَن کی شاہি تم کو رضاؔ مُسلَّم<br>جس سَمْت آ گئے ہو سِکّے بٹھا دیے ہیں</div>
         <div class="bangla-translation">কাব্যের জগতের রাজত্ব আপনারই হে رضا (রেজা), তা সর্বজনস্বীকৃত<br>যেদিকেই আপনি গিয়েছেন, নিজের বিজয়পতাকা উড়িয়ে দিয়েছেন।</div>
     </div>
 """, unsafe_allow_html=True)
@@ -164,7 +176,7 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
                     f"তুমি একজন বিশিষ্ট ইসলামিক স্কলার। নিচে দেওয়া কিতাবসমূহের তথ্যের আলোকে ব্যবহারকারীর প্রশ্নের উত্তর দাও।\n"
                     f"১. উত্তরটি অবশ্যই অত্যন্ত আদব ও সম্মানের সাথে প্রদান করবে।\n"
                     f"২. কিতাবের তথ্যের বাইরে থেকে নিজের মতো কোনো উত্তর বানিয়ে দেবে না।\n"
-                    f"৩. উত্তরটি সহজ- সরল বাংলায় উপস্থাপন করো।\n\n"
+                    f"৩. উত্তরটি সহজ-সরল বাংলায় উপস্থাপন করো।\n\n"
                     f"কিতাবসমূহের তথ্য:\n{kitab_context}\n\n"
                     f"ব্যবহারকারীর প্রশ্ন: {prompt}"
                 )
