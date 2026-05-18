@@ -4,23 +4,39 @@ from google.genai import types
 import os
 from pypdf import PdfReader
 import glob
+import base64
 
 # Page configuration
 st.set_page_config(page_title="আলা হযরত এআই কিতাবখানা", page_icon="📚", layout="centered")
 
-# --- CUSTOM CSS WITH YOUR NEW BACKGROUND IMAGE ---
+# --- FUNCTION TO CONVERT LOCAL IMAGE TO BASE64 ---
+def get_base64_image(image_path):
+    if os.path.exists(image_path):
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    return None
+
+# Load your uploaded image 
+image_file = "12375.png"
+img_base64 = get_base64_image(image_file)
+
+# --- CUSTOM CSS FOR DESIGN & BACKGROUND ---
+if img_base64:
+    st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: linear-gradient(rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.94)), 
+                              url("data:image/png;base64,{img_base64}");
+            background-size: auto 55%;
+            background-position: center 65%;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
 st.markdown("""
     <style>
-    /* আপনার দেওয়া নতুন ছবিটিকে ব্যাকগ্রাউন্ডে একদম হালকা জলছাপ হিসেবে সেট করার কোড */
-    .stApp {
-        background-image: linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), 
-                          url("https://cdn1.vectorstock.com/i/1000x1000/21/22/ala-hazrat-tomb-ahmed-raza-khan-bareilly-vector-27702122.jpg");
-        background-size: auto 65%; /* ছবিটির সাইজ সুন্দরভাবে মাঝখানে ফিট করার জন্য */
-        background-position: center 60%;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-    }
-    
     .main-title {
         font-size: 2.2rem;
         color: #0F4C3A;
@@ -34,8 +50,6 @@ st.markdown("""
         text-align: center;
         margin-bottom: 15px;
     }
-    
-    /* আপনার দেওয়া নির্দিষ্ট উর্দু শেরের সুন্দর বক্স */
     .urdu-sher-container {
         background-color: rgba(15, 76, 58, 0.08);
         border-left: 4px solid #0F4C3A;
@@ -58,7 +72,6 @@ st.markdown("""
         color: #4A5568;
         font-style: italic;
     }
-    
     .sidebar-header {
         font-size: 1.2rem;
         color: #0F4C3A;
@@ -70,11 +83,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# App Title & Description
+# App Title & Description (Fixing the multiline markdown format)
 st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allowed_html=True)
 
-# --- YOUR CHOSEN URDU SHER SECTION ---
+# --- URDU SHER SECTION ---
 st.markdown("""
     <div class="urdu-sher-container">
         <div class="urdu-text">مُلکِ سُخَن کی شاہی تم کو رضاؔ مُسلَّم<br>جس سَمْت آ گئے ہو سِکّے بٹھا دیے ہیں</div>
@@ -86,7 +99,7 @@ st.markdown("""
 api_key = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=api_key)
 
-# Function to read ALL PDFs directly using PyPDF
+# Function to read ALL PDFs
 @st.cache_resource
 def load_all_kitabs_text():
     combined_text = ""
