@@ -68,19 +68,19 @@ st.markdown("""
         margin-bottom: 10px;
     }
     </style>
-""", unsafe_allowed_html=True)
+""", unsafe_allow_html=True)
 
 # App Title & Description
-st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allowed_html=True)
-st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allowed_html=True)
+st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
 
 # --- YOUR CHOSEN URDU SHER SECTION ---
 st.markdown("""
     <div class="urdu-sher-container">
         <div class="urdu-text">مُلکِ سُخَن کی شاہی تم کو رضاؔ مُسلَّم<br>جس سَمْت آ گئے ہو سِکّے بٹھا دیے ہیں</div>
-        <div class="bangla-translation">কাব্যের জগতের রাজত্ব আপনারই হে রেজা, তা সর্বজনস্বীকৃত<br>যেদিকেই আপনি গিয়েছেন, নিজের বিজয়পতাকা উড়িয়ে দিয়েছেন।</div>
+        <div class="bangla-translation">কাব্যের জগতের রাজত্ব আপনারই হে رضا (রেজা), তা সর্বজনস্বীকৃত<br>যেদিকেই আপনি গিয়েছেন, নিজের বিজয়পতাকা উড়িয়ে দিয়েছেন।</div>
     </div>
-""", unsafe_allowed_html=True)
+""", unsafe_allow_html=True)
 
 # Fetch API Key from Streamlit Secrets
 api_key = st.secrets["GEMINI_API_KEY"]
@@ -115,7 +115,7 @@ kitab_context, available_books = load_all_kitabs_text()
 
 # --- SIDEBAR DESIGN ---
 with st.sidebar:
-    st.markdown('<div class="sidebar-header">📖 কিতাবখানার বর্তমান কিতাবসমূহ</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="sidebar-header">📖 কিতাবখানার বর্তমান কিতাবসমূহ</div>', unsafe_allow_html=True)
     if available_books:
         for book in available_books:
             st.markdown(f"🔹 **{book}**")
@@ -123,7 +123,7 @@ with st.sidebar:
         st.write("❌ কোনো কিতাব পাওয়া যায়নি।")
         
     st.markdown("---")
-    st.markdown('<div class="sidebar-header">💡 ব্যবহার বিধি</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="sidebar-header">💡 ব্যবহার বিধি</div>', unsafe_allow_html=True)
     st.info(
         "১. নিচে থাকা চ্যাট বক্সে আপনার প্রশ্নটি বাংলায় লিখুন।\n\n"
         "২. এই এআই শুধুমাত্র ওপরে তালিকাভুক্ত কিতাবসমূহ থেকে উত্তর প্রদান করবে।"
