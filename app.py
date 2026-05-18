@@ -72,25 +72,25 @@ st.markdown(f"""
         border: 1px solid rgba(15, 76, 58, 0.15) !important;
     }}
     
-    /* আরবি ও উর্দু ইবারত ডান দিক থেকে শুরু করার বিশেষ সিএসএস ক্লাসরুম */
+    /* আরবি ও উর্দু ইবারত ডান দিক থেকে শুরু করার বিশেষ সিএসএস */
     .arabic-ur-ibarath {{
         direction: rtl !important;
         text-align: right !important;
-        font-family: 'Traditional Arabic', 'Amiri', 'Arial', sans-serif !important;
-        font-size: 1.45rem !important;
-        line-height: 2.0 !important;
+        font-family: 'Traditional Arabic', 'Amiri', 'Noto Naskh Arabic', sans-serif !important;
+        font-size: 1.55rem !important;
+        line-height: 2.2 !important;
         color: #0F4C3A !important;
         background-color: #F7FAFC !important;
-        padding: 12px;
+        padding: 15px;
         border-radius: 6px;
-        border-right: 4px solid #0F4C3A;
+        border-right: 5px solid #0F4C3A;
         margin-top: 10px;
         margin-bottom: 10px;
     }}
     .bengali-translation {{
         direction: ltr !important;
         text-align: left !important;
-        font-size: 1.05rem !important;
+        font-size: 1.1rem !important;
         line-height: 1.6 !important;
         color: #2D3748 !important;
         margin-top: 5px;
@@ -99,8 +99,8 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# App Title & Description
-st.markdown('<div class="main-title">📚 ⁠ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
+# App Title
+st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
 
 # --- URDU SHER SECTION ---
@@ -114,32 +114,34 @@ st.markdown("""
 api_key = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=api_key)
 
-# Function to read ALL PDFs
+# Function to read ALL PDFs deeply
 @st.cache_resource
 def load_all_kitabs_text():
-    combined_text = ""
+    kitabs_dict = {}
     pdf_files = glob.glob("*.pdf") 
     loaded_books = []
     
     if not pdf_files:
-        return "কোনো কিতাব ফাইল খুঁজে পাওয়া যায়নি।", []
+        return {}, []
         
     for file_path in pdf_files:
+        file_name = os.path.basename(file_path)
+        book_text = ""
         try:
             reader = PdfReader(file_path)
-            file_name = os.path.basename(file_path)
             loaded_books.append(file_name)
             for page in reader.pages:
                 text = page.extract_text()
                 if text:
-                    combined_text += text + "\n"
+                    book_text += text + "\n"
+            kitabs_dict[file_name] = book_text if book_text.strip() else "[সংযুক্ত কিতাব]"
         except Exception as e:
             continue
             
-    return combined_text, loaded_books
+    return kitabs_dict, loaded_books
 
 # Load books
-kitab_context, available_books = load_all_kitabs_text()
+kitab_data, available_books = load_all_kitabs_text()
 
 # --- SIDEBAR DESIGN ---
 with st.sidebar:
@@ -154,68 +156,68 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header">💡 ব্যবহার বিধি</div>', unsafe_allow_html=True)
     st.info(
         "১. নিচে থাকা চ্যাট বক্সে আপনার প্রশ্নটি বাংলায় লিখুন।\n\n"
-        "২. এই এআই শুধুমাত্র ওপরে তালিকাভুক্ত কিতাবসমূহ থেকে উত্তর প্রদান করবে।"
+        "২. ইবারত বা উদ্ধৃতি প্রয়োজন হলে প্রশ্নে উল্লেখ করুন (যেমন: ইবারতসহ বলুন)।"
     )
     st.markdown("---")
     st.caption("Developed with ❤️ for Islamic Research")
 
-# --- 🛠️ 100% WORKING CHAT HISTORY & CONTEXT SYSTEM ---
-# স্ক্রিনে মেসেজ সেভ রাখার মূল সেশন স্টেট
+# --- CHAT HISTORY & CONTEXT SYSTEM ---
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
-# আগের কথাগুলো স্ক্রিনে রেন্ডার রাখা
+# আগের মেসেজ স্ক্রিনে রাখা
 for message in st.session_state["messages"]:
     with st.chat_message(message["role"]):
         st.write(message["content"], unsafe_allow_html=True)
 
-# নতুন প্রশ্ন ইনপুট নেওয়া
+# নতুন প্রশ্ন ইনপুট
 if prompt := st.chat_input("আলা হযরতের কিতাবসমূহ সম্পর্কে যেকোনো প্রশ্ন লিখুন..."):
     
-    # ব্যবহারকারীর প্রশ্ন স্ক্রিনে দেখানো এবং হিস্ট্রিতে সেভ করা
     st.session_state["messages"].append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt, unsafe_allow_html=True)
 
-    # এআই এর উত্তর তৈরি করা
     with st.chat_message("assistant"):
         with st.spinner("কিতাবখানা থেকে উত্তর খোঁজা হচ্ছে..."):
             try:
-                # কঠোর সিস্টেম গাইডলাইন
+                # কঠোর এবং চূড়ান্ত শক্তিশালী গাইডলাইন
                 system_instruction = (
-                    "তুমি একজন অত্যন্ত প্রজ্ঞাবান, বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার মূল দায়িত্ব হলো নিচে দেওয়া কিতাবসমূহের তথ্যের আলোকে একদম নির্ভুল উত্তর দেওয়া।\n\n"
-                    "নিচের শর্তগুলো কঠোরভাবে মেনে চলতে হবে:\n"
-                    "১. ব্যবহারকারীর প্রশ্নের পেছনের আসল উদ্দেশ্য (Intent) এবং মনের ভাব খুব গভীরভাবে অনুধাবন করার চেষ্টা করো।\n"
-                    "২. কোনো অবস্থাতেই কোনো মনগড়া, আনুমানিক, কাল্পনিক বা ভুল তথ্য (Misinformation/Hallucination) দেওয়া যাবে না।\n"
-                    "৩. ব্যবহারকারী কিতাব সংক্রান্ত কোনো মাসআলা বা উদ্ধৃতি জিজ্ঞেস করলেই, কিতাবে থাকা মূল আরবি অথবা উর্দু ইবারত (Original Text) অবশ্যই প্রদান করবে।\n"
-                    "৪. ইবারতটি সুন্দরভাবে দেখানোর জন্য সেটিকে বাধ্যতামূলকভাবে এই HTML ট্যাগের ভেতরে রাখবে: <div class='arabic-ur-ibarath'>মূল আরবি/উর্দু ইবারত এখানে লিখবে</div>। এতে লেখাটি স্বয়ংক্রিয়ভাবে ডান দিক থেকে শুরু হবে।\n"
-                    "৫. মূল ইবারতের ঠিক নিচেই সহজ-সরল বাংলায় অনুবাদ প্রদান করবে এবং অনুবাদটিকে এই HTML ট্যাগের ভেতরে রাখবে: <div class='bengali-translation'>বাংলা অনুবাদ এখানে লিখবে</div>।\n"
-                    "৬. যদি কোনো প্রশ্নের উত্তর নিচে দেওয়া কিতাবসমূহের তথ্যের মধ্যে না থাকে, তবে কোনো মনগড়া ব্যাখ্যা না দিয়ে অত্যন্ত বিনয়ের সাথে বলবে: 'দুঃখিত, এই তথ্যটি বর্তমান কিতাবসমূহে খুঁজে পাওয়া যায়নি।'\n"
-                    "৭. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে কথা বলবে।"
+                    "তুমি একজন অত্যন্ত প্রজ্ঞাবান, বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার কাজ হলো নিচে দেওয়া কিতাবগুলোর তথ্যের ওপর ভিত্তি করে সর্বোচ্চ শক্তিশালী ও জ্ঞানগর্ভ উত্তর দেওয়া।\n\n"
+                    "গুরুত্বপূর্ণ কার্যপ্রণালী নিয়মাবলী:\n"
+                    "১. প্রতিটি কিতাবের কন্টেন্ট আলাদাভাবে এবং গভীরভাবে স্ক্যান করবে যাতে কোনো তথ্য বাদ না পড়ে।\n"
+                    "২. কোনো মনগড়া, আনুমানিক, কাল্পনিক বা ভুল তথ্য (Hallucination) দেওয়া সম্পূর্ণ নিষিদ্ধ। তথ্যের সত্যতা বজায় রাখা তোমার প্রধান কর্তব্য।\n"
+                    "৩. ইবারত প্রদানের নিয়ম: ব্যবহারকারী যদি তার প্রশ্নে স্পষ্টভাবে 'আরবি ইবারত দিন', 'উর্দু ইবারত দিন', 'মূল উদ্ধৃতি দিন' বা এই জাতীয় কোনো অনুরোধ করে, কেবল তখনই তুমি মূল কিতাবের টেক্সট প্রদান করবে। ব্যবহারকারী নিজে থেকে না চাইলে স্বয়ংক্রিয়ভাবে ইবারত দেওয়ার প্রয়োজন নেই, শুধু বাংলায় স্পষ্ট উত্তর দিলেই হবে।\n"
+                    "৪. যতটুকু ইবারত চাওয়া হবে, ঠিক ততটুকুই নিখুঁতভাবে দিবে। ইবারত দেওয়ার সময় কোনো অক্ষর বা শব্দের সিকুয়েন্স যাতে ওলটপালট বা রিভার্স (উল্টো) না হয় সেদিকে কঠোর নজর রাখবে।\n"
+                    "৫. ইবারতটি দেখানোর সময় বাধ্যতামূলকভাবে এই HTML ট্যাগের ভেতরে রাখবে: <div class='arabic-ur-ibarath'>মূল ইবারত এখানে</div>। এতে লেখাটি ডান দিক থেকে শুরু হবে।\n"
+                    "৬. মূল ইবারতের ঠিক নিচেই তার সাবলীল বাংলা অনুবাদ এই ট্যাগের ভেতর দিবে: <div class='bengali-translation'>বাংলা অনুবাদ এখানে</div>।\n"
+                    "৭. যদি উত্তর কিতাবগুলোর কোনোটিতেই না থাকে, তবে বানোয়াট কিছু না বলে বলবে: 'দুঃখিত, এই তথ্যটি বর্তমান কিতাবসমূহে খুঁজে পাওয়া যায়নি।'\n"
+                    "৮. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে একজন আন্তরিক সহযাত্রীর মতো কথা বলবে।"
                 )
                 
-                # চ্যাট ইতিহাসকে সুন্দর ফরম্যাটে গুছিয়ে এআই-এর মেমোরিতে পাঠানো
+                # চ্যাট ইতিহাস সাজানো
                 history_data = []
                 for msg in st.session_state["messages"][:-1]:
                     role_type = "user" if msg["role"] == "user" else "model"
                     history_data.append(types.Content(role=role_type, parts=[types.Part.from_text(text=msg["content"])]))
                 
-                # কিতাবের তথ্য এবং বর্তমান প্রশ্নকে মূল প্রম্পট হিসেবে পাঠানো
-                current_prompt = f"কিতাবসমূহের মূল তথ্যভাণ্ডার:\n{kitab_context}\n\nব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}"
+                # সব কিতাবের কন্টেন্ট প্রম্পটে যুক্ত করা
+                all_kitabs_context = ""
+                for b_name, b_text in kitab_data.items():
+                    all_kitabs_context += f"--- কিতাবের নাম: {b_name} ---\n{b_text}\n\n"
                 
-                # জেমিনি মডেল রান করা (হিস্ট্রি এবং কিতাবের কন্টেন্ট সহ)
+                current_prompt = f"কিতাবসমূহের মূল তথ্যভাণ্ডার:\n{all_kitabs_context}\n\nব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}"
+                
+                # জেমিনি মডেল রান করা (সর্বোচ্চ নির্ভুলতার জন্য temperature=0.2 করা হয়েছে)
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
                     contents=history_data + [types.Content(role="user", parts=[types.Part.from_text(text=current_prompt)])],
                     config=types.GenerateContentConfig(
-                        system_instruction=system_instruction
+                        system_instruction=system_instruction,
+                        temperature=0.2
                     )
                 )
                 
-                # স্ক্রিনে উত্তর দেখানো
                 st.write(response.text, unsafe_allow_html=True)
-                
-                # এআই এর উত্তর চ্যাট হিস্ট্রিতে সেভ করা
                 st.session_state["messages"].append({"role": "assistant", "content": response.text})
                 
             except Exception as e:
