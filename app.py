@@ -72,7 +72,6 @@ st.markdown(f"""
         border: 1px solid rgba(15, 76, 58, 0.15) !important;
     }}
     
-    /* আরবি ও উর্দু ইবারত ডান দিক থেকে শুরু করার বিশেষ সিএসএস */
     .arabic-ur-ibarath {{
         direction: rtl !important;
         text-align: right !important;
@@ -114,10 +113,10 @@ st.markdown("""
 api_key = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=api_key)
 
-# Function to read ALL PDFs deeply
+# কিতাবের ডাটা প্যারাগ্রাফ বা পৃষ্ঠা আকারে লোড করার স্মার্ট ফাংশন
 @st.cache_resource
-def load_all_kitabs_text():
-    kitabs_dict = {}
+def load_all_kitabs_chunks():
+    chunks_dict = {}
     pdf_files = glob.glob("*.pdf") 
     loaded_books = []
     
@@ -126,53 +125,59 @@ def load_all_kitabs_text():
         
     for file_path in pdf_files:
         file_name = os.path.basename(file_path)
-        book_text = ""
+        chunks_dict[file_name] = []
         try:
             reader = PdfReader(file_path)
             loaded_books.append(file_name)
-            for page in reader.pages:
+            for page_num, page in enumerate(reader.pages):
                 text = page.extract_text()
-                if text:
-                    book_text += text + "\n"
-            
-            cleaned_text = " ".join(book_text.split())
-            kitabs_dict[file_name] = cleaned_text if cleaned_text.strip() else "[সংযুক্ত কিতাব]"
+                if text and text.strip():
+                    cleaned_page_text = " ".join(text.split())
+                    # প্রতিটি পৃষ্ঠার টেক্সট আলাদা চাঙ্ক হিসেবে সেভ করা হচ্ছে
+                    chunks_dict[file_name].append({
+                        "page": page_num + 1,
+                        "text": cleaned_page_text
+                    })
         except Exception as e:
             continue
             
-    return kitabs_dict, loaded_books
+    return chunks_dict, loaded_books
 
-# Load books
-kitab_data, available_books = load_all_kitabs_text()
+# Load books chunks
+kitab_chunks, available_books = load_all_kitabs_chunks()
 
-# --- INITIALIZE CHAT SESSION SYSTEM ---
+# ইউজারের প্রশ্নের কিওয়ার্ডের ওপর ভিত্তি করে প্রাসঙ্গিক পাতা খুঁজে বের করার সার্চ ইঞ্জিন
+def retrieve_relevant_context(query, chunks_data, top_n=5):
+    relevant_segments = ""
+    query_words = [word.lower() for word in query.split() if len(word) > 2]
+    
+    if not query_words:
+        # কিওয়ার্ড না থাকলে ব্যাকআপ হিসেবে প্রথম কয়েক পাতা
+        for b_name, pages in chunks_data.items():
+            for p in pages[:2]:
+                relevant_segments += f"[{b_name} - পৃষ্ঠা {p['page']}]: {p['text']}\n\n"
+        return relevant_segments
+
+    matched_chunks = []
+    for b_name, pages in chunks_data.items():
+        for p in pages:
+            score = sum(1 for word in query_words if word in p['text'].lower())
+            if score > 0:
+                matched_chunks.append((score, b_name, p['page'], p['text']))
+                
+    # সবচেয়ে বেশি মিল পাওয়া পৃষ্ঠাগুলো শর্ট করা
+    matched_chunks.sort(key=lambda x: x[0], reverse=True)
+    
+    for score, b_name, p_num, p_text in matched_chunks[:top_n]:
+        relevant_segments += f"--- কিতাবের নাম: {b_name} (পৃষ্ঠা: {p_num}) ---\n{p_text}\n\n"
+        
+    return relevant_segments
+
+# --- INITIALIZE CHAT HISTORY ---
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
-if "chat_session" not in st.session_state:
-    # শক্তিশালী ইসলামিক স্কলার গাইডলাইন
-    system_instruction = (
-        "তুমি একজন অত্যন্ত প্রজ্ঞাবান, বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার দায়িত্ব হলো নিচে দেওয়া কিতাবগুলোর তথ্যের আলোকে সর্বোচ্চ শক্তিশালী ও জ্ঞানগর্ভ উত্তর দেওয়া।\n\n"
-        "কঠোর কার্যপ্রণালী নিয়মাবলী:\n"
-        "1. প্রতিটি কিতাবের কন্টেন্ট আলাদাভাবে এবং গভীরভাবে স্ক্যান করবে যাতে কোনো তথ্য বাদ না পড়ে।\n"
-        "2. কোনো মনগড়া, আনুমানিক বা ভুল তথ্য (Hallucination) দেওয়া সম্পূর্ণ নিষিদ্ধ।\n"
-        "3. ফন্ট ও আয়াত কারেকশন লজিক: পিডিএফ ফাইলের টেক্সটে যদি কোনো কুরআনের আয়াত বা হাদিসের টেক্সট ভেঙে গিয়ে অদ্ভুত চিহ্ন বা ভুল কোড (যেমন: a!$# â'θçP ইত্যাদি) আকারে থাকে, তবে তুমি তোমার নিজস্ব অভ্যন্তরীণ ইসলামিক জ্ঞান ভাণ্ডার ব্যবহার করে সেই আয়াত বা উদ্ধৃতির হুবহু আসল ও শুদ্ধ রূপটি (Original Correct Arabic/Urdu Text) পুনরুদ্ধার করে প্রদান করবে। কোনো অবস্থাতেই স্ক্রিনে ভাঙা বা অদ্ভুত কোড দেখানো যাবে না।\n"
-        "4. ইবারত নিয়ন্ত্রণের নিয়ম: ব্যবহারকারী যদি তার প্রশ্নে স্পষ্টভাবে 'আরবি ইবারত দিন', 'উর্দু ইবারত দিন', 'মূল আয়াত দিন' বা এই জাতীয় কোনো অনুরোধ করে, কেবল তখনই তুমি মূল কিতাবের টেক্সট প্রদান করবে। ব্যবহারকারী নিজে থেকে ইবারত না চাইলে স্বয়ংক্রিয়ভাবে ইবারত দেওয়ার প্রয়োজন নেই, শুধু বাংলায় মজবুত ও সঠিক উত্তর দিলেই হবে।\n"
-        "5. যতটুকু ইবারত বা আয়াত চাওয়া হবে, ঠিক ততটুকুই নিখুঁতভাবে দিবে। ইবারতটি দেখানোর সময় বাধ্যতামূলকভাবে এই HTML ট্যাগের ভেতরে রাখবে: <div class='arabic-ur-ibarath'>শুদ্ধ ইবারত/আнят এখানে</div>। এতে লেখাটি ডান দিক থেকে শুরু হবে।\n"
-        "6. মূল ইবারতের ঠিক নিচেই তার সাবলীল বাংলা অনুবাদ এই ট্যাগের ভেতর দিবে: <div class='bengali-translation'>বাংলা অনুবাদ এখানে</div>।\n"
-        "7. যদি উত্তর কিতাবগুলোর কোনোটিতেই না থাকে, তবে বানোয়াট কিছু না বলে বলবে: 'দুঃখিত, এই তথ্যটি বর্তমান কিতাবসমূহে খুঁজে পাওয়া যায়নি।'\n"
-        "8. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে কথা বলবে।"
-    )
-    
-    st.session_state["chat_session"] = client.chats.create(
-        model="gemini-2.5-flash",
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            temperature=0.1
-        )
-    )
-
-# --- SIDEBAR DESIGN & MEMORY CONTROL ---
+# --- SIDEBAR DESIGN ---
 with st.sidebar:
     st.markdown('<div class="sidebar-header">📖 কিতাবখানার বর্তমান কিতাবসমূহ</div>', unsafe_allow_html=True)
     if available_books:
@@ -183,18 +188,15 @@ with st.sidebar:
         
     st.markdown("---")
     
-    # 🕒 চ্যাট হিস্ট্রি রিসেট বাটন (ভিজ্যুয়াল অপশন)
     st.markdown('<div class="sidebar-header">🕒 চ্যাট মেমোরি কন্ট্রোল</div>', unsafe_allow_html=True)
     if st.button("🗑️ নতুন করে চ্যাট শুরু করুন (Clear History)", use_container_width=True):
         st.session_state["messages"] = []
-        if "chat_session" in st.session_state:
-            del st.session_state["chat_session"]
         st.rerun()
         
     st.markdown("---")
     st.markdown('<div class="sidebar-header">💡 ব্যবহার বিধি</div>', unsafe_allow_html=True)
     st.info(
-        "১. নিচে থাকা চ্যাট বক্সে আপনার প্রশ্নটি বাংলায় লিখুন。\n\n"
+        "১. নিচে থাকা চ্যাট বক্সে আপনার প্রশ্নটি বাংলায় লিখুন।\n\n"
         "২. ইবারত বা কুরআনের মূল আয়াত প্রয়োজন হলে প্রশ্নে উল্লেখ করুন (যেমন: আয়াত/ইবারতসহ বলুন)।"
     )
     st.markdown("---")
@@ -215,18 +217,42 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
     with st.chat_message("assistant"):
         with st.spinner("কিতাবখানা থেকে উত্তর খোঁজা হচ্ছে..."):
             try:
-                # সব কিতাবের কন্টেন্ট একসাথে প্রম্পট গাইড হিসেবে পাঠানো
-                all_kitabs_context = ""
-                for b_name, b_text in kitab_data.items():
-                    all_kitabs_context += f"--- কিতাবের নাম: {b_name} ---\n{b_text}\n\n"
+                # স্মার্টলি কিতাব থেকে শুধু প্রাসঙ্গিক অংশটুকু ফিল্টার করে আনা হচ্ছে
+                relevant_context = retrieve_relevant_context(prompt, kitab_chunks)
                 
-                full_query = f"কিতাবসমূহের মূল তথ্যভাণ্ডার:\n{all_kitabs_context}\n\nব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}"
+                system_instruction = (
+                    "তুমি একজন অত্যন্ত প্রজ্ঞাবান, বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার দায়িত্ব হলো নিচে দেওয়া নির্দিষ্ট কিতাবের তথ্যের আলোকে সর্বোচ্চ শক্তিশালী ও জ্ঞানগর্ভ উত্তর দেওয়া।\n\n"
+                    "কঠোর কার্যপ্রণালী নিয়মাবলী:\n"
+                    "১. তোমাকে যে প্রাসঙ্গিক কন্টেন্টটুকু দেওয়া হবে, সেটিকে গভীরভাবে স্ক্যান করে উত্তর তৈরি করবে।\n"
+                    "২. কোনো মনগড়া, আনুমানিক বা ভুল তথ্য (Hallucination) দেওয়া সম্পূর্ণ নিষিদ্ধ।\n"
+                    "৩. ফন্ট ও আয়াত কারেকশন লজিক: কন্টেন্টের টেক্সটে যদি কোনো কুরআনের আয়াত বা হাদিসের টেক্সট ভেঙে গিয়ে অদ্ভুত চিহ্ন বা ভুল কোড (যেমন: a!$# â'θçP ইত্যাদি) আকারে থাকে, তবে তুমি তোমার নিজস্ব অভ্যন্তরীণ ইসলামিক জ্ঞান ভাণ্ডার ব্যবহার করে সেই আয়াত বা উদ্ধৃতির হুবহু আসল ও শুদ্ধ রূপটি (Original Correct Arabic/Urdu Text) পুনরুদ্ধার করে প্রদান করবে। কোনো অবস্থাতেই স্ক্রিনে ভাঙা বা অদ্ভুত কোড দেখানো যাবে না।\n"
+                    "４. ইবারত নিয়ন্ত্রণের নিয়ম: ব্যবহারকারী যদি তার প্রশ্নে স্পষ্টভাবে 'আরবি ইবারত দিন', 'উর্দু ইবারত দিন', 'মূল আয়াত দিন' বা এই জাতীয় কোনো অনুরোধ করে, কেবল তখনই তুমি মূল কিতাবের টেক্সট প্রদান করবে। ব্যবহারকারী নিজে থেকে ইবারত না চাইলে স্বয়ংক্রিয়ভাবে ইবারত দেওয়ার প্রয়োজন নেই, শুধু বাংলায় মজবুত ও সঠিক উত্তর দিলেই হবে।\n"
+                    "৫. যতটুকু ইবারত বা আয়াত চাওয়া হবে, ঠিক ততটুকুই নিখুঁতভাবে দিবে। ইবারতটি দেখানোর সময় বাধ্যতামূলকভাবে এই HTML ট্যাগের ভেতরে রাখবে: <div class='arabic-ur-ibarath'>শুদ্ধ ইবারত/আয়াত এখানে</div>। এতে লেখাটি ডান দিক থেকে শুরু হবে।\n"
+                    "৬. মূল ইবারতের ঠিক নিচেই তার সাবলীল বাংলা অনুবাদ এই ট্যাগের ভেতর দিবে: <div class='bengali-translation'>বাংলা অনুবাদ এখানে</div>।\n"
+                    "৭. যদি উত্তর সরবরাহকৃত তথ্যে না থাকে, তবে বানোয়াট কিছু না বলে বলবে: 'দুঃখিত, এই তথ্যটি বর্তমান কিতাবসমূহে খুঁজে পাওয়া যায়নি।'\n"
+                    "৮. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে কথা বলবে।"
+                )
                 
-                # অফিশিয়াল স্টেবল চ্যাট সেশন মেসেজ প্রেরণ
-                response = st.session_state["chat_session"].send_message(full_query)
+                # মেমোরির জন্য শেষ ৩টি মেসেজের হিস্ট্রি পাঠানো (যাতে আগের প্রম্পট ওভারলোড না হয়)
+                history_data = []
+                for msg in st.session_state["messages"][-4:-1]:
+                    role_type = "user" if msg["role"] == "user" else "model"
+                    history_data.append(types.Content(role=role_type, parts=[types.Part.from_text(text=msg["content"])]))
+                
+                current_prompt = f"কিতাবসমূহ থেকে ফিল্টার করা প্রাসঙ্গিক তথ্যভাণ্ডার:\n{relevant_context}\n\nব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}"
+                
+                # জেমিনি মডেল রান করা
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=history_data + [types.Content(role="user", parts=[types.Part.from_text(text=current_prompt)])],
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=0.1
+                    )
+                )
                 
                 st.write(response.text, unsafe_allow_html=True)
                 st.session_state["messages"].append({"role": "assistant", "content": response.text})
                 
             except Exception as e:
-                st.error("দুঃখিত, উত্তর তৈরিতে সমস্যা হয়েছে। দয়া করে সাইডবার থেকে 'Clear History' করে আবার চেষ্টা করুন।")
+                st.error("দুঃখিত, উত্তর তৈরিতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।")
