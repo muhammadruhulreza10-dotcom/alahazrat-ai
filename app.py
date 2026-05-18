@@ -4,67 +4,48 @@ from google.genai import types
 import os
 from pypdf import PdfReader
 import glob
-import base64
 
 # Page configuration
 st.set_page_config(page_title="আলা হযরত এআই কিতাবখানা", page_icon="📚", layout="centered")
 
-# --- FUNCTION TO CONVERT LOCAL IMAGE TO BASE64 ---
-def get_base64_image(image_path):
-    if os.path.exists(image_path):
-        with open(image_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    return None
+# ভেক্টরস্টকের সেই মাজার শরীফের ডিরেক্ট ইমেজ লিংক
+image_url = "https://images.vectorstock.com/preview-w850/22/21/ala-hazrat-tomb-ahmed-raza-khan-bareilly-vector-27702122.jpg"
 
-# আপনার আপলোড করা ছবির নাম (গিটহাবে ফাইলটির নাম "12375.png" থাকতে হবে)
-image_file = "12375.png" 
-img_base64 = get_base64_image(image_file)
-
-# --- CUSTOM CSS FOR FULL LIGHT MODE & VISIBLE BACKGROUND ---
-st.markdown("""
+# --- CUSTOM CSS FOR FULL LIGHT MODE & ONLINE BACKGROUND IMAGE ---
+st.markdown(f"""
     <style>
-    html, body, [data-testid="stAppViewContainer"], .stApp {
+    /* ১. পুরো অ্যাপের ব্যাকগ্রাউন্ড ধবধবে সাদা করা এবং মাজারের ছবি জলছাপ হিসেবে সেট করা */
+    html, body, [data-testid="stAppViewContainer"], .stApp {{
         background-color: #FFFFFF !important;
-        background: #FFFFFF !important;
+        background-image: linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), 
+                          url("{image_url}") !important;
+        background-size: auto 65% !important;
+        background-position: center 70% !important;
+        background-repeat: no-repeat !important;
+        background-attachment: fixed !important;
         color: #1A202C !important;
-    }
-    .stAppHeader, .stMainBlockContainer, .stBlock, [data-testid="stHeader"], [data-testid="stVerticalBlock"] {
+    }}
+    
+    /* ২. স্ট্রিমলিটের অন্যান্য লেয়ারগুলো স্বচ্ছ করা যেন পেছনের ছবি দেখা যায় */
+    .stAppHeader, .stMainBlockContainer, .stBlock, [data-testid="stHeader"], [data-testid="stVerticalBlock"] {{
         background-color: transparent !important;
         background: transparent !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-if img_base64:
-    st.markdown(f"""
-        <style>
-        .stApp {{
-            background-image: linear-gradient(rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.82)), 
-                              url("data:image/png;base64,{img_base64}") !important;
-            background-size: auto 60% !important;
-            background-position: center 65% !important;
-            background-repeat: no-repeat !important;
-            background-attachment: fixed !important;
-        }}
-        </style>
-    """, unsafe_allow_html=True)
-
-st.markdown("""
-    <style>
-    .main-title {
+    }}
+    
+    .main-title {{
         font-size: 2.0rem;
         color: #0F4C3A;
         text-align: center;
         font-weight: bold;
         margin-bottom: 5px;
-    }
-    .sub-title {
+    }}
+    .sub-title {{
         font-size: 1.05rem;
         color: #2D3748;
         text-align: center;
         margin-bottom: 15px;
-    }
-    .urdu-sher-container {
+    }}
+    .urdu-sher-container {{
         background-color: rgba(15, 76, 58, 0.06);
         border: 1px solid rgba(15, 76, 58, 0.2);
         border-left: 5px solid #0F4C3A;
@@ -72,8 +53,8 @@ st.markdown("""
         border-radius: 8px;
         text-align: center;
         margin-bottom: 25px;
-    }
-    .urdu-text {
+    }}
+    .urdu-text {{
         font-family: 'Arial', sans-serif !important;
         font-size: 1.5rem;
         color: #0F4C3A;
@@ -81,37 +62,37 @@ st.markdown("""
         white-space: normal !important;
         line-height: 1.8;
         margin-bottom: 8px;
-    }
-    .bangla-translation {
+    }}
+    .bangla-translation {{
         font-size: 0.95rem;
         color: #2D3748;
         font-style: italic;
         line-height: 1.5;
-    }
-    .sidebar-header {
+    }}
+    .sidebar-header {{
         font-size: 1.1rem;
         color: #0F4C3A;
         font-weight: bold;
         border-bottom: 2px solid #0F4C3A;
         padding-bottom: 5px;
         margin-bottom: 10px;
-    }
-    [data-testid="stChatMessage"] {
+    }}
+    [data-testid="stChatMessage"] {{
         background-color: rgba(255, 255, 255, 0.9) !important;
         border: 1px solid rgba(15, 76, 58, 0.15) !important;
-    }
+    }}
     </style>
 """, unsafe_allow_html=True)
 
 # App Title & Description
-st.markdown('<div class="main-title">📚 ইমাম আহমদ রেজা খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
 
 # --- URDU SHER SECTION ---
 st.markdown("""
     <div class="urdu-sher-container">
         <div class="urdu-text">ملکِ سخن کی شاہی تم کو رضاؔ مسلم<br>جس سمت آ گئے ہو سکے بٹھا دیے ہیں</div>
-        <div class="bangla-translation">কাব্যের জগতের রাজত্ব আপনারই হে রেজা, তা সর্বজনস্বীকৃত<br>যেদিকেই আপনি গিয়েছেন, নিজের বিজয়পতাকা উড়িয়ে দিয়েছেন।</div>
+        <div class="bangla-translation">কাব্যের জগতের রাজত্ব আপনারই হে رضا (রেজা), তা সর্বজনস্বীকৃত<br>যেদিকেই আপনি গিয়েছেন, নিজের বিজয়পতাকা উড়িয়ে দিয়েছেন।</div>
     </div>
 """, unsafe_allow_html=True)
 
