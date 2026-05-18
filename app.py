@@ -83,9 +83,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# App Title & Description (Fixing the multiline markdown format)
+# App Title & Description (সব জায়গায় unsafe_allow_html=True নিশ্চিত করা হয়েছে)
 st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allowed_html=True)
+st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
 
 # --- URDU SHER SECTION ---
 st.markdown("""
@@ -164,7 +164,7 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
                     f"তুমি একজন বিশিষ্ট ইসলামিক স্কলার। নিচে দেওয়া কিতাবসমূহের তথ্যের আলোকে ব্যবহারকারীর প্রশ্নের উত্তর দাও।\n"
                     f"১. উত্তরটি অবশ্যই অত্যন্ত আদব ও সম্মানের সাথে প্রদান করবে।\n"
                     f"২. কিতাবের তথ্যের বাইরে থেকে নিজের মতো কোনো উত্তর বানিয়ে দেবে না।\n"
-                    f"৩. উত্তরটি সহজ-সরল বাংলায় উপস্থাপন করো।\n\n"
+                    f"৩. উত্তরটি সহজ- সরল বাংলায় উপস্থাপন করো।\n\n"
                     f"কিতাবসমূহের তথ্য:\n{kitab_context}\n\n"
                     f"ব্যবহারকারীর প্রশ্ন: {prompt}"
                 )
