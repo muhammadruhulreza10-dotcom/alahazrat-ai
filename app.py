@@ -10,10 +10,16 @@ st.set_page_config(
     layout="centered"
 )
 
+# ---------------- AUTO CREATE BOOKS FOLDER ----------------
+BOOK_FOLDER = "books"
+
+if not os.path.exists(BOOK_FOLDER):
+    os.makedirs(BOOK_FOLDER)
+
 # ---------------- BACKGROUND IMAGE ----------------
 image_url = "https://images.vectorstock.com/preview-w850/22/21/ala-hazrat-tomb-ahmed-raza-khan-bareilly-vector-27702122.jpg"
 
-# ---------------- CUSTOM CSS ----------------
+# ---------------- CSS ----------------
 st.markdown(f"""
 <style>
 
@@ -21,23 +27,13 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
     background-color: #FFFFFF !important;
 
     background-image:
-    linear-gradient(rgba(255,255,255,0.88), rgba(255,255,255,0.88)),
+    linear-gradient(rgba(255,255,255,0.90), rgba(255,255,255,0.90)),
     url("{image_url}") !important;
 
     background-size: auto 65% !important;
     background-position: center 70% !important;
     background-repeat: no-repeat !important;
     background-attachment: fixed !important;
-
-    color: #1A202C !important;
-}}
-
-.stAppHeader,
-.stMainBlockContainer,
-.stBlock,
-[data-testid="stHeader"],
-[data-testid="stVerticalBlock"] {{
-    background: transparent !important;
 }}
 
 .main-title {{
@@ -66,12 +62,10 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 }}
 
 .urdu-text {{
-    font-family: 'Arial', sans-serif !important;
     font-size: 1.5rem;
     color: #0F4C3A;
-    text-align: center !important;
     line-height: 1.8;
-    direction: rtl !important;
+    direction: rtl;
 }}
 
 .sidebar-header {{
@@ -81,12 +75,6 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
     border-bottom: 2px solid #0F4C3A;
     padding-bottom: 5px;
     margin-bottom: 10px;
-}}
-
-[data-testid="stChatMessage"] {{
-    background-color: rgba(255,255,255,0.92) !important;
-    border: 1px solid rgba(15, 76, 58, 0.15) !important;
-    border-radius: 10px;
 }}
 
 .arabic-ur-ibarath {{
@@ -99,15 +87,15 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
     'Noto Naskh Arabic',
     sans-serif !important;
 
-    font-size: 1.65rem !important;
-    line-height: 2.3 !important;
+    font-size: 1.7rem !important;
+    line-height: 2.2 !important;
 
     color: #0F4C3A !important;
 
     background-color: #F7FAFC !important;
 
     padding: 15px;
-    border-radius: 6px;
+    border-radius: 8px;
 
     border-right: 5px solid #0F4C3A;
 
@@ -116,15 +104,9 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 }}
 
 .bengali-translation {{
-    direction: ltr !important;
-    text-align: left !important;
-
-    font-size: 1.1rem !important;
-    line-height: 1.7 !important;
-
-    color: #2D3748 !important;
-
-    margin-top: 5px;
+    font-size: 1.1rem;
+    line-height: 1.7;
+    color: #2D3748;
     margin-bottom: 15px;
 }}
 
@@ -138,7 +120,7 @@ st.markdown(
 )
 
 st.markdown(
-    '<div class="sub-title">আলা হযরতের কিতাবসমূহ থেকে নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম</div>',
+    '<div class="sub-title">কিতাবসমূহ থেকে নির্ভরযোগ্য উত্তর অনুসন্ধান</div>',
     unsafe_allow_html=True
 )
 
@@ -152,22 +134,19 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------- BOOK FOLDER ----------------
-BOOK_FOLDER = "books"
-
 # ---------------- PDF TEXT EXTRACTION ----------------
 @st.cache_data
 def extract_text_from_pdfs():
 
     full_text = ""
 
-    if not os.path.exists(BOOK_FOLDER):
-        os.makedirs(BOOK_FOLDER)
-
     pdf_files = [
         f for f in os.listdir(BOOK_FOLDER)
         if f.endswith(".pdf")
     ]
+
+    if not pdf_files:
+        return ""
 
     for pdf_file in pdf_files:
 
@@ -191,9 +170,6 @@ def extract_text_from_pdfs():
     return full_text
 
 # ---------------- AVAILABLE BOOKS ----------------
-if not os.path.exists(BOOK_FOLDER):
-    os.makedirs(BOOK_FOLDER)
-
 available_books = [
     f for f in os.listdir(BOOK_FOLDER)
     if f.endswith(".pdf")
@@ -204,7 +180,7 @@ api_key = st.secrets["GEMINI_API_KEY"]
 
 client = genai.Client(api_key=api_key)
 
-# ---------------- SESSION STATE ----------------
+# ---------------- SESSION ----------------
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
@@ -217,43 +193,59 @@ with st.sidebar:
     )
 
     if available_books:
+
+        st.success(f"{len(available_books)} টি কিতাব পাওয়া গেছে")
+
         for book in available_books:
             st.markdown(f"🔹 **{book}**")
+
     else:
-        st.warning("books ফোল্ডারে কোনো PDF পাওয়া যায়নি")
+        st.error("⚠️ এখনো কোনো PDF upload করা হয়নি")
 
     st.markdown("---")
 
     st.markdown(
-        '<div class="sidebar-header">🕒 চ্যাট কন্ট্রোল</div>',
+        '<div class="sidebar-header">📤 PDF Upload করুন</div>',
         unsafe_allow_html=True
     )
 
-    if st.button("🗑️ নতুন চ্যাট শুরু করুন", use_container_width=True):
-        st.session_state["messages"] = []
+    uploaded_files = st.file_uploader(
+        "এখানে PDF upload করুন",
+        type=["pdf"],
+        accept_multiple_files=True
+    )
+
+    if uploaded_files:
+
+        for uploaded_file in uploaded_files:
+
+            save_path = os.path.join(
+                BOOK_FOLDER,
+                uploaded_file.name
+            )
+
+            with open(save_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+
+        st.success("✅ PDF সফলভাবে Upload হয়েছে")
+
+        st.cache_data.clear()
+
         st.rerun()
 
     st.markdown("---")
 
-    st.markdown(
-        '<div class="sidebar-header">💡 ব্যবহার বিধি</div>',
-        unsafe_allow_html=True
-    )
+    if st.button("🗑️ নতুন চ্যাট শুরু করুন", use_container_width=True):
 
-    st.info(
-        "১. books ফোল্ডারে PDF আপলোড করুন\n\n"
-        "২. নিচে প্রশ্ন লিখুন\n\n"
-        "৩. AI কিতাব থেকে উত্তর খুঁজে দিবে"
-    )
+        st.session_state["messages"] = []
 
-    st.markdown("---")
+        st.rerun()
 
-    st.caption("Developed with ❤️ for Islamic Research")
-
-# ---------------- OLD CHAT RENDER ----------------
+# ---------------- OLD CHAT ----------------
 for message in st.session_state["messages"]:
 
     with st.chat_message(message["role"]):
+
         st.write(message["content"], unsafe_allow_html=True)
 
 # ---------------- CHAT INPUT ----------------
@@ -265,6 +257,7 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
     })
 
     with st.chat_message("user"):
+
         st.write(prompt)
 
     with st.chat_message("assistant"):
@@ -273,30 +266,36 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 
             try:
 
-                # ---------------- LOAD PDF CONTENT ----------------
+                # ---------------- LOAD BOOK TEXT ----------------
                 books_content = extract_text_from_pdfs()
 
-                # ---------------- CHAT HISTORY ----------------
-                chat_history_str = ""
+                if not books_content:
 
-                for msg in st.session_state["messages"][-4:-1]:
+                    st.warning("প্রথমে PDF Upload করুন")
 
-                    role_name = (
-                        "ইউজার"
-                        if msg["role"] == "user"
-                        else "সহকারী"
-                    )
+                else:
 
-                    chat_history_str += (
-                        f"{role_name}: {msg['content']}\n"
-                    )
+                    # ---------------- CHAT HISTORY ----------------
+                    chat_history = ""
 
-                # ---------------- FINAL PROMPT ----------------
-                final_prompt = f"""
-তুমি একজন প্রজ্ঞাবান ও সত্যনিষ্ঠ ইসলামিক স্কলার।
+                    for msg in st.session_state["messages"][-4:-1]:
+
+                        role_name = (
+                            "ইউজার"
+                            if msg["role"] == "user"
+                            else "সহকারী"
+                        )
+
+                        chat_history += (
+                            f"{role_name}: {msg['content']}\n"
+                        )
+
+                    # ---------------- FINAL PROMPT ----------------
+                    final_prompt = f"""
+তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার।
 
 পূর্ববর্তী চ্যাট:
-{chat_history_str}
+{chat_history}
 
 ব্যবহারকারীর প্রশ্ন:
 {prompt}
@@ -311,7 +310,7 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 
 ২. মনগড়া কিছু বলা যাবে না।
 
-৩. যদি তথ্য না পাও তাহলে বলবে:
+৩. তথ্য না পেলে বলবে:
 "এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি"
 
 ৪. আয়াত বা ইবারত দিলে এই format ব্যবহার করবে:
@@ -324,25 +323,25 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 বাংলা অনুবাদ
 </div>
 
-৫. অপ্রয়োজনীয় বড় উত্তর দিবে না।
+৫. উত্তর বাংলা ভাষায় দিবে।
 
-৬. বাংলা ভাষায় সুন্দর ও নির্ভুল উত্তর দিবে।
+৬. অপ্রয়োজনীয় বড় উত্তর দিবে না।
 """
 
-                # ---------------- GEMINI RESPONSE ----------------
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=final_prompt
-                )
+                    # ---------------- GEMINI ----------------
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=final_prompt
+                    )
 
-                output_text = response.text
+                    output_text = response.text
 
-                st.write(output_text, unsafe_allow_html=True)
+                    st.write(output_text, unsafe_allow_html=True)
 
-                st.session_state["messages"].append({
-                    "role": "assistant",
-                    "content": output_text
-                })
+                    st.session_state["messages"].append({
+                        "role": "assistant",
+                        "content": output_text
+                    })
 
             except Exception as e:
 
