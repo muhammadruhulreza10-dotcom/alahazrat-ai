@@ -2,7 +2,6 @@ import streamlit as st
 from google import genai
 import os
 from pypdf import PdfReader
-import glob
 
 # Page configuration
 st.set_page_config(page_title="আলা হযরত এআই কিতাবখানা", page_icon="📚", layout="centered")
@@ -104,7 +103,7 @@ st.markdown('<div class="sub-title">আলা হযরতের মোবার
 # --- URDU SHER SECTION ---
 st.markdown("""
     <div class="urdu-sher-container">
-        <div class="urdu-text">ملکِ سخن کی شاہی تم کو رضاؔ مسلم<br>جس سمت آ گئے ہو سکے بٹھا دیے ہیں</div>
+        <div class="urdu-text">ملکِ سخন کی شاہی تم کو رضاؔ مسلم<br>جس سمت آ گئے ہو سکے بٹھا دیے ہیں</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -112,33 +111,31 @@ st.markdown("""
 api_key = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=api_key)
 
-# কিতাবের ডাটা পৃষ্ঠা আকারে লোড করার স্মার্ট ফাংশন
+# কিতাবের ডাটা সুনির্দিষ্ট ফাইলের নাম ধরে লোড করার ফাংশন (যাতে কোনো ফাইল মিস না হয়)
 @st.cache_resource
 def load_all_kitabs_chunks():
     chunks_dict = {}
-    pdf_files = glob.glob("*.pdf") 
+    # আপনার রিপোজিটরিতে থাকা কিতাবগুলোর সুনির্দিষ্ট তালিকা
+    pdf_files = ["hadayeq.pdf", "kitab.pdf"] 
     loaded_books = []
     
-    if not pdf_files:
-        return {}, []
-        
-    for file_path in pdf_files:
-        file_name = os.path.basename(file_path)
-        chunks_dict[file_name] = []
-        try:
-            reader = PdfReader(file_path)
-            loaded_books.append(file_name)
-            for page_num, page in enumerate(reader.pages):
-                text = page.extract_text()
-                if text and text.strip():
-                    cleaned_page_text = " ".join(text.split())
-                    chunks_dict[file_name].append({
-                        "page": page_num + 1,
-                        "text": cleaned_page_text
-                    })
-        except Exception as e:
-            continue
-            
+    for file_name in pdf_files:
+        if os.path.exists(file_name):
+            chunks_dict[file_name] = []
+            try:
+                reader = PdfReader(file_name)
+                loaded_books.append(file_name)
+                for page_num, page in enumerate(reader.pages):
+                    text = page.extract_text()
+                    if text and text.strip():
+                        cleaned_page_text = " ".join(text.split())
+                        chunks_dict[file_name].append({
+                            "page": page_num + 1,
+                            "text": cleaned_page_text
+                        })
+            except Exception as e:
+                continue
+                
     return chunks_dict, loaded_books
 
 # Load books chunks
@@ -216,7 +213,7 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
                 # কিতাব থেকে প্রাসঙ্গিক অংশটুকু ফিল্টার করে আনা হচ্ছে
                 relevant_context = retrieve_relevant_context(prompt, kitab_chunks)
                 
-                # চ্যাট কন্টেক্সট ইতিহাস স্ট্রিং আকারে তৈরি করা (টাইপ ক্র্যাশ এড়াতে)
+                # চ্যাট কন্টেক্সট ইতিহাস স্ট্রিং আকারে তৈরি করা
                 chat_history_str = ""
                 for msg in st.session_state["messages"][-4:-1]:
                     role_name = "ইউজার" if msg["role"] == "user" else "সহকারী"
@@ -228,14 +225,14 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
                     f"পূর্ববর্তী চ্যাট ইতিহাস:\n{chat_history_str}\n"
                     f"কিতাবসমূহ থেকে ফিল্টার করা প্রাসঙ্গিক তথ্য:\n{relevant_context}\n"
                     f"ব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}\n\n"
-                    "নিয়মাবলী:\n"
+                    "নিয়મাবলী:\n"
                     "১. সরবরাহকৃত প্রাসঙ্গিক তথ্যের আলোকেই শুধু উত্তর দেবে। বানিয়ে কিছু বলবে না।\n"
                     "২. পিডিএফ-এর ভাঙা ফন্ট (যেমন: a!$# â'θçP ইত্যাদি) স্ক্রিনে দেখাবে না। তোমার জ্ঞান থেকে শুদ্ধ আরবি আয়াতটি পুনরুদ্ধার করে দেখাবে।\n"
-                    "৩. ব্যবহারকারী নিজে থেকে 'আয়াত' বা 'ইবারত' না চাইলে অযথা বড় আরবি টেক্সট দেবে না, শুধু বাংলায় সাবলীল উত্তর দেবে।\n"
+                    "৩. ব্যবহারকারী নিজে থেকে 'আнят' বা 'ইবারত' না চাইলে অযথা বড় আরবি টেক্সট দেবে না, শুধু বাংলায় সাবলীল উত্তর দেবে।\n"
                     "৪. আয়াত বা ইবারত দিলে তা বাধ্যতামূলকভাবে <div class='arabic-ur-ibarath'>শুদ্ধ টেক্সট</div> এবং তার নিচে <div class='bengali-translation'>অনুবাদ</div> আকারে সাজিয়ে দেবে।"
                 )
                 
-                # জেমিনি মডেল রান (সরাসরি টেক্সট কন্টেন্ট পাস করা হচ্ছে)
+                # জেমিনি মডেল রান
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
                     contents=final_prompt
