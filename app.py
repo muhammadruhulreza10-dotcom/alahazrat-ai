@@ -14,7 +14,6 @@ image_url = "https://images.vectorstock.com/preview-w850/22/21/ala-hazrat-tomb-a
 # --- CUSTOM CSS FOR FULL LIGHT MODE & ONLINE BACKGROUND IMAGE ---
 st.markdown(f"""
     <style>
-    /* ১. পুরো অ্যাপের ব্যাকগ্রাউন্ড ধবধবে সাদা করা এবং মাজারের ছবি জলছাপ হিসেবে সেট করা */
     html, body, [data-testid="stAppViewContainer"], .stApp {{
         background-color: #FFFFFF !important;
         background-image: linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), 
@@ -25,13 +24,10 @@ st.markdown(f"""
         background-attachment: fixed !important;
         color: #1A202C !important;
     }}
-    
-    /* ২. স্ট্রিমলিটের অন্যান্য লেয়ারগুলো স্বচ্ছ করা যেন পেছনের ছবি দেখা যায় */
     .stAppHeader, .stMainBlockContainer, .stBlock, [data-testid="stHeader"], [data-testid="stVerticalBlock"] {{
         background-color: transparent !important;
         background: transparent !important;
     }}
-    
     .main-title {{
         font-size: 2.0rem;
         color: #0F4C3A;
@@ -61,13 +57,6 @@ st.markdown(f"""
         text-align: center !important;
         white-space: normal !important;
         line-height: 1.8;
-        margin-bottom: 8px;
-    }}
-    .bangla-translation {{
-        font-size: 0.95rem;
-        color: #2D3748;
-        font-style: italic;
-        line-height: 1.5;
     }}
     .sidebar-header {{
         font-size: 1.1rem;
@@ -86,13 +75,12 @@ st.markdown(f"""
 
 # App Title & Description
 st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি বাংলায় সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">আলা হযরতের মোবারক কিতাবসমূহ থেকে সরাসরি সঠিক ও নির্ভরযোগ্য উত্তর পাওয়ার মাধ্যম।</div>', unsafe_allow_html=True)
 
-# --- URDU SHER SECTION ---
+# --- URDU SHER SECTION (বাংলা অনুবাদ সম্পূর্ণ রিমুভ করা হয়েছে) ---
 st.markdown("""
     <div class="urdu-sher-container">
         <div class="urdu-text">ملکِ سخن کی شاہی تم کو رضاؔ مسلم<br>جس سمت آ گئے ہو سکے بٹھا دیے ہیں</div>
-        <div class="bangla-translation">কাব্যের জগতের রাজত্ব আপনারই হে رضا (রেজা), তা সর্বজনস্বীকৃত<br>যেদিকেই আপনি গিয়েছেন, নিজের বিজয়পতাকা উড়িয়ে দিয়েছেন।</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -161,12 +149,20 @@ if prompt := st.chat_input("আলা হযরতের কিতাবসম�
     with st.chat_message("assistant"):
         with st.spinner("কিতাবখানা থেকে উত্তর খোঁজা হচ্ছে..."):
             try:
+                # --- কঠোর সিকিউরিটি এবং ইবারত প্রদানের সিস্টেম গাইডলাইন ---
+                system_instruction = (
+                    "তুমি একজন অত্যন্ত বিশ্বস্ত এবং কঠোরভাবে সত্যনিষ্ঠ ইসলামিক স্কলার। তোমার মূল দায়িত্ব হলো নিচে দেওয়া কিতাবসমূহের তথ্যের আলোকে একদম নির্ভুল উত্তর দেওয়া।\n\n"
+                    "নিচের শর্তগুলো কঠোরভাবে মেনে চলতে হবে:\n"
+                    "১. কোনো অবস্থাতেই কোনো মনগড়া, আনুমানিক বা ভুল তথ্য (Misinformation/Hallucination) দেওয়া যাবে না। তথ্যের সত্যতা ও গ্রহণযোগ্যতা বজায় রাখা তোমার প্রধান কর্তব্য।\n"
+                    "২. ব্যবহারকারী কিতাব সংক্রান্ত কোনো মাসআলা বা উদ্ধৃতি জিজ্ঞেস করলেই, কিতাবে থাকা মূল আরবি অথবা উর্দু ইবারত (Original Text) হুবহু তুলে ধরবে।\n"
+                    "৩. মূল ইবারতটি দেওয়ার পাশাপাশি তার ঠিক নিচেই সহজ-সরল ও স্পষ্ট বাংলা অনুবাদ (Bengali Translation) প্রদান করবে।\n"
+                    "৪. যদি কোনো প্রশ্নের উত্তর বা মাসআলা নিচে দেওয়া কিতাবের তথ্যের মধ্যে না থাকে, তবে কোনো মনগড়া ব্যাখ্যা না দিয়ে অত্যন্ত বিনয়ের সাথে বলবে: 'দুঃখিত, এই তথ্যটি বর্তমান কিতাবসমূহে খুঁজে পাওয়া যায়নি।' বানিয়ে কিছু বলা সম্পূর্ণ নিষিদ্ধ।\n"
+                    "৫. আলা হযরত এবং ধর্মীয় বিষয়ের প্রতি সর্বোচ্চ আদব ও সম্মান বজায় রেখে কথা বলবে।"
+                )
+                
                 full_prompt = (
-                    f"তুমি একজন বিশিষ্ট ইসলামিক স্কলার। নিচে দেওয়া কিতাবসমূহের তথ্যের আলোকে ব্যবহারকারীর প্রশ্নের উত্তর দাও।\n"
-                    f"১. উত্তরটি অবশ্যই অত্যন্ত আদব ও সম্মানের সাথে প্রদান করবে।\n"
-                    f"২. কিতাবের তথ্যের বাইরে থেকে নিজের মতো কোনো উত্তর বানিয়ে দেবে না।\n"
-                    f"৩. উত্তরটি সহজ-সরল বাংলায় উপস্থাপন করো।\n\n"
-                    f"কিতাবসমূহের তথ্য:\n{kitab_context}\n\n"
+                    f"সিস্টেম গাইডলাইন (এটি কঠোরভাবে অনুসরণীয়):\n{system_instruction}\n\n"
+                    f"কিতাবসমূহের মূল তথ্যভাণ্ডার:\n{kitab_context}\n\n"
                     f"ব্যবহারকারীর প্রশ্ন: {prompt}"
                 )
                 
