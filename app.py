@@ -1,6 +1,6 @@
 import streamlit as st
 from google import genai
-from google.genai import types  # গুগলের নতুন SDK কনফিগারেশনের জন্য
+from google.genai import types  # নতুন SDK-এর কনফিগারেশনের জন্য প্রয়োজন
 from pypdf import PdfReader
 import os
 
@@ -93,7 +93,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 """, unsafe_allow_html=True)
 
 # ---------------- TITLE & SHER ----------------
-st.markdown('<div class="main-title">📚 ইমাম আহমদ রেজা খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">কিতাবসমূহ থেকে নির্ভরযোগ্য উত্তর অনুসন্ধান</div>', unsafe_allow_html=True)
 
 st.markdown("""
@@ -124,20 +124,17 @@ def extract_text_from_pdfs():
                 if text:
                     full_text += text + "\n"
         except Exception:
-            full_text += f"\n[ত্রুটি: {pdf_file} কিতাবটি পড়া যায়নি]\n"
+            full_text += f"\n[ত্রুটি: {pdf_file} কিতাবটি পড়া যায়নি]\n"
             
     return full_text
 
 # ---------------- AVAILABLE BOOKS ----------------
 available_books = [f for f in os.listdir(BOOK_FOLDER) if f.endswith(".pdf")]
 
-# ---------------- GEMINI API INIT ----------------
-if "GEMINI_API_KEY" not in st.secrets:
-    st.error("⚠️ Streamlit Secrets-এ 'GEMINI_API_KEY' খুঁজে পাওয়া যায়নি! দয়া করে সেটিংস চেক করুন।")
-    st.stop()
-
-api_key = st.secrets["GEMINI_API_KEY"]
-client = genai.Client(api_key=api_key)
+# ---------------- GEMINI API INIT (NEW KEY SET) ----------------
+# আপনার নতুন জেমিনী এপিআই কী সরাসরি কোডে সেট করা হলো
+NEW_GEMINI_KEY = "AIzaSyCWkaCi-5xQGftBAXsjSQIY2-G5pGcNYgs"
+client = genai.Client(api_key=NEW_GEMINI_KEY)
 
 # ---------------- SESSION STATE ----------------
 if "messages" not in st.session_state:
@@ -148,11 +145,11 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header">📖 বর্তমান কিতাবসমূহ</div>', unsafe_allow_html=True)
     
     if available_books:
-        st.success(f"{len(available_books)} টি কিতাব পাওয়া গেছে")
+        st.success(f"{len(available_books)} টি কিতাব পাওয়া গেছে")
         for book in available_books:
             st.markdown(f"🔹 **{book}**")
     else:
-        st.error("⚠️ এখনো কোনো PDF upload করা হয়নি")
+        st.error("⚠️ এখনো কোনো PDF upload করা হয়নি")
 
     st.markdown("---")
     st.markdown('<div class="sidebar-header">📤 PDF Upload করুন</div>', unsafe_allow_html=True)
@@ -169,7 +166,7 @@ with st.sidebar:
             with open(save_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
 
-        st.success("✅ PDF সফলভাবে Upload হয়েছে")
+        st.success("✅ PDF সফলভাবে Upload হয়েছে")
         st.cache_data.clear()
         st.rerun()
 
@@ -205,19 +202,18 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                         role_name = "ইউজার" if msg["role"] == "user" else "সহকারী"
                         chat_history += f"{role_name}: {msg['content']}\n"
 
-                    # গুগলের সিস্টেম ইন্সট্রাকশন
+                    # সিস্টেম ইন্সট্রাকশন
                     system_instruction = (
-                        "তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার। তোমার কাজ নিচে দেওয়া কিতাবের টেক্সট থেকে উত্তর দেওয়া।\n"
+                        "তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার। তোমার কাজ নিচে দেওয়া কিতাবের টেক্সট থেকে উত্তর দেওয়া।\n"
                         "নির্দেশনা:\n"
-                        "১. শুধুমাত্র কিতাবের তথ্য থেকে উত্তর দিবে। মনগড়া কিছু বলা যাবে না।\n"
-                        "২. তথ্য না পেলে বলবে: 'এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।'\n"
-                        "৩. কিতাবের কোনো আরবি বা উর্দু ইবারত বা আয়াত/হাদিস হুবহু দিলে অবশ্যই এই HTML format ব্যবহার করবে:\n"
+                        "১. শুধুমাত্র কিতাবের তথ্য থেকে উত্তর দিবে। মনগড়া কিছু বলা যাবে না。\n"
+                        "২. তথ্য না পেলে বলবে: 'এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।'\n"
+                        "৩. কিতাবের কোনো আরবি বা উর্দু ইবারত বা আয়াত/হাদিস হুবহু দিলে অবশ্যই এই HTML format ব্যবহার করবে:\n"
                         "<div class='arabic-ur-ibarath'>আরবি বা উর্দু টেক্সট এখানে লিখবে</div>\n"
                         "<div class='bengali-translation'>বাংলা অনুবাদ এখানে লিখবে</div>\n"
-                        "৪. উত্তর স্পষ্ট বাংলা ভাষায় দিবে এবং অপ্রয়োজনীয় বড় করবে না।"
+                        "৪. উত্তর স্পষ্ট বাংলা ভাষায় দিবে এবং অপ্রয়োজনীয় বড় করবে না।"
                     )
 
-                    # মূল প্রম্পট কন্টেন্ট (ফ্রি টিয়ারের জন্য ৩০,০০০ ক্যারেক্টার লিমিট)
                     final_user_prompt = f"""
 পূর্ববর্তী চ্যাট ইতিহাস:
 {chat_history}
@@ -225,17 +221,17 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 ব্যবহারকারীর বর্তমান প্রশ্ন:
 {prompt}
 
-নিচে কিতাবসমূহের টেক্সট দেওয়া হলো:
+নিচে কিতাবসমূহের টেক্সট দেওয়া হলো:
 {books_content[:30000]}
 """
 
-                    # Gemini 3 Flash / 2.5 Flash মডেল কলিং সিনট্যাক্স
+                    # নতুন SDK-এর সিনট্যাক্স অনুযায়ী সফল কল
                     response = client.models.generate_content(
-                        model="gemini-3-flash",
+                        model="gemini-2.5-flash",
                         contents=final_user_prompt,
                         config=types.GenerateContentConfig(
                             system_instruction=system_instruction,
-                            temperature=0.2,
+                            temperature=0.3,
                         )
                     )
 
@@ -252,6 +248,6 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                 if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
                     st.warning("⚠️ গুগলের ফ্রি সার্ভারে এখন অনেক চাপ। অনুগ্রহ করে ২০-৩০ সেকেন্ড পর আবার চেষ্টা করুন।")
                 elif "403" in error_msg or "PERMISSION_DENIED" in error_msg:
-                    st.error("🔒 API Key-তে সমস্যা রয়েছে। দয়া করে আপনার Google AI Studio থেকে সঠিক Key-টি Secrets-এ চেক করুন।")
+                    st.error("🔒 এপিআই কী ভেরিফিকেশন সফল হয়নি। অনুগ্রহ করে নিশ্চিত করুন আপনার এআই স্টুডিওতে কী-টি সক্রিয় আছে কি না।")
                 else:
-                    st.error(f"দুঃখিত, কিতাবখানা থেকে উত্তর তৈরিতে সাময়িক সমস্যা হয়েছে। দয়া করে Secrets-এ GEMINI_API_KEY চেক করুন।")
+                    st.error(f"দুঃখিত, কিতাবখানা সিস্টেমে একটি অভ্যন্তরীণ সমস্যা হয়েছে।")
