@@ -1,25 +1,25 @@
 import streamlit as st
-import requests
+from google import genai
 from pypdf import PdfReader
 import os
 
-# ================= PAGE CONFIG =================
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="আলা হযরত এআই কিতাবখানা",
     page_icon="📚",
     layout="centered"
 )
 
-# ================= AUTO CREATE BOOKS FOLDER =================
+# ---------------- AUTO CREATE BOOKS FOLDER ----------------
 BOOK_FOLDER = "books"
 
 if not os.path.exists(BOOK_FOLDER):
     os.makedirs(BOOK_FOLDER)
 
-# ================= BACKGROUND IMAGE =================
+# ---------------- BACKGROUND IMAGE ----------------
 image_url = "https://images.vectorstock.com/preview-w850/22/21/ala-hazrat-tomb-ahmed-raza-khan-bareilly-vector-27702122.jpg"
 
-# ================= CSS =================
+# ---------------- CSS ----------------
 st.markdown(f"""
 <style>
 
@@ -27,7 +27,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
     background-color: #FFFFFF !important;
 
     background-image:
-    linear-gradient(rgba(255,255,255,0.92), rgba(255,255,255,0.92)),
+    linear-gradient(rgba(255,255,255,0.90), rgba(255,255,255,0.90)),
     url("{image_url}") !important;
 
     background-size: auto 65% !important;
@@ -110,26 +110,10 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
     margin-bottom: 15px;
 }}
 
-/* চ্যাট ইনপুট বক্স মোবাইলে গায়েব হওয়া রোধ করার ফিক্স */
-[data-testid="stChatInput"] {{
-    position: fixed !important;
-    bottom: 45px !important;
-    left: 0;
-    right: 0;
-    z-index: 999999;
-    background-color: #FFFFFF !important;
-    padding: 10px !important;
-}}
-
-/* ইনপুট বক্সের নিচের ফাঁকা অংশ ঠিক করার জন্য */
-.stChatInputContainer {{
-    padding-bottom: 20px !important;
-}}
-
 </style>
 """, unsafe_allow_html=True)
 
-# ================= TITLE =================
+# ---------------- TITLE ----------------
 st.markdown(
     '<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>',
     unsafe_allow_html=True
@@ -140,7 +124,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ================= SHER =================
+# ---------------- URDU SHER ----------------
 st.markdown("""
 <div class="urdu-sher-container">
 <div class="urdu-text">
@@ -150,7 +134,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ================= PDF TEXT EXTRACTION =================
+# ---------------- PDF TEXT EXTRACTION ----------------
 @st.cache_data
 def extract_text_from_pdfs():
 
@@ -171,7 +155,7 @@ def extract_text_from_pdfs():
         try:
             reader = PdfReader(pdf_path)
 
-            full_text += f"\n\n========== কিতাবের নাম: {pdf_file} ==========\n\n"
+            full_text += f"\n\n========== {pdf_file} ==========\n\n"
 
             for page in reader.pages:
 
@@ -180,54 +164,27 @@ def extract_text_from_pdfs():
                 if text:
                     full_text += text + "\n"
 
-        except Exception:
-            full_text += f"\n[ত্রুটি: {pdf_file} পড়া যায়নি]\n"
+        except Exception as e:
+            full_text += f"\n{pdf_file} পড়তে সমস্যা হয়েছে\n"
 
     return full_text
 
-# ================= RELEVANT SEARCH (উন্নত সংস্করণ) =================
-def search_relevant_text(query, books_text, chunk_size=2000):
-    query_words = [w.lower() for w in query.split() if len(w) > 1]
-    if not query_words:
-        return books_text[:3000]
-
-    paragraphs = books_text.split('\n\n')
-    scored_chunks = []
-    
-    current_chunk = ""
-    for para in paragraphs:
-        if len(current_chunk) + len(para) < chunk_size:
-            current_chunk += "\n\n" + para
-        else:
-            if current_chunk.strip():
-                score = sum(1 for word in query_words if word in current_chunk.lower())
-                if score > 0:
-                    scored_chunks.append((score, current_chunk))
-            current_chunk = para
-
-    if current_chunk.strip():
-        score = sum(1 for word in query_words if word in current_chunk.lower())
-        if score > 0:
-            scored_chunks.append((score, current_chunk))
-
-    scored_chunks.sort(reverse=True, key=lambda x: x[0])
-    
-    if scored_chunks:
-        return "\n\n---\n\n".join([c[1] for c in scored_chunks[:3]])
-    
-    return books_text[:3000]
-
-# ================= AVAILABLE BOOKS =================
+# ---------------- AVAILABLE BOOKS ----------------
 available_books = [
     f for f in os.listdir(BOOK_FOLDER)
     if f.endswith(".pdf")
 ]
 
-# ================= SESSION =================
+# ---------------- GEMINI API ----------------
+api_key = st.secrets["GEMINI_API_KEY"]
+
+client = genai.Client(api_key=api_key)
+
+# ---------------- SESSION ----------------
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
-# ================= SIDEBAR =================
+# ---------------- SIDEBAR ----------------
 with st.sidebar:
 
     st.markdown(
@@ -284,14 +241,14 @@ with st.sidebar:
 
         st.rerun()
 
-# ================= OLD CHAT =================
+# ---------------- OLD CHAT ----------------
 for message in st.session_state["messages"]:
 
     with st.chat_message(message["role"]):
 
         st.write(message["content"], unsafe_allow_html=True)
 
-# ================= CHAT INPUT =================
+# ---------------- CHAT INPUT ----------------
 if prompt := st.chat_input("কিতাব সম্পর্কে প্রশ্ন লিখুন..."):
 
     st.session_state["messages"].append({
@@ -309,22 +266,16 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 
             try:
 
-                # ================= LOAD BOOKS =================
+                # ---------------- LOAD BOOK TEXT ----------------
                 books_content = extract_text_from_pdfs()
 
-                if not books_content.strip():
+                if not books_content:
 
                     st.warning("প্রথমে PDF Upload করুন")
 
                 else:
 
-                    # ================= SEARCH RELEVANT TEXT =================
-                    relevant_text = search_relevant_text(
-                        prompt,
-                        books_content
-                    )
-
-                    # ================= CHAT HISTORY =================
+                    # ---------------- CHAT HISTORY ----------------
                     chat_history = ""
 
                     for msg in st.session_state["messages"][-4:-1]:
@@ -339,16 +290,10 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                             f"{role_name}: {msg['content']}\n"
                         )
 
-                    # ================= FINAL PROMPT =================
+                    # ---------------- FINAL PROMPT ----------------
+                    # ফ্রি এপিআই এর কোটা সুরক্ষায় অক্ষরের লিমিট ৩০,০০০ এ রাখা হয়েছে যাতে ক্র্যাশ না করে
                     final_prompt = f"""
 তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার।
-
-শুধুমাত্র নিচে দেওয়া কিতাবের অংশ থেকে উত্তর দিবে।
-
-মনগড়া কিছু বলা যাবে না।
-
-তথ্য না পেলে বলবে:
-"এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি"
 
 পূর্ববর্তী চ্যাট:
 {chat_history}
@@ -356,14 +301,20 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 ব্যবহারকারীর প্রশ্ন:
 {prompt}
 
-কিতাবের relevant অংশ:
-{relevant_text}
+নিচে কিতাবসমূহের টেক্সট দেওয়া হলো:
 
-বিশেষ নির্দেশনা:
+{books_content[:30000]}
 
-১. উত্তর বাংলা ভাষায় দিবে।
+নির্দেশনা:
 
-২. আরবি/উর্দু ইবারত দিলে এই format ব্যবহার করবে:
+১. শুধুমাত্র কিতাবের তথ্য থেকে উত্তর দিবে।
+
+২. মনগড়া কিছু বলা যাবে না।
+
+৩. তথ্য না পেলে বলবে:
+"এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি"
+
+৪. আয়াত বা ইবারত দিলে এই format ব্যবহার করবে:
 
 <div class='arabic-ur-ibarath'>
 আরবি/উর্দু টেক্সট
@@ -373,70 +324,32 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 বাংলা অনুবাদ
 </div>
 
-৩. অপ্রয়োজনীয় বড় উত্তর দিবে না।
+৫. উত্তর বাংলা ভাষায় দিবে।
+
+৬. অপ্রয়োজনীয় বড় উত্তর দিবে না।
 """
 
-                    # ================= API (Groq) =================
-                    url = "https://api.groq.com/openai/v1/chat/completions"
-
-                    try:
-                        api_key = st.secrets["DEEPSEEK_API_KEY"]
-                    except KeyError:
-                        st.error("⚠️ Streamlit Secrets এ 'DEEPSEEK_API_KEY' সেট করা হয়নি!")
-                        st.stop()
-
-                    headers = {
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
-                    }
-
-                    payload = {
-                        "model": "llama-3.3-70b-versatile",
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": final_prompt
-                            }
-                        ],
-                        "temperature": 0.3,
-                        "max_tokens": 1200
-                    }
-
-                    # ================= REQUEST =================
-                    response = requests.post(
-                        url,
-                        json=payload,
-                        headers=headers,
-                        timeout=60
+                    # ---------------- GEMINI ----------------
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=final_prompt
                     )
 
-                    # ================= RESPONSE =================
-                    if response.status_code == 200:
+                    output_text = response.text
 
-                        response_data = response.json()
+                    st.write(output_text, unsafe_allow_html=True)
 
-                        output_text = response_data[
-                            "choices"
-                        ][0]["message"]["content"]
-
-                        st.write(
-                            output_text,
-                            unsafe_allow_html=True
-                        )
-
-                        st.session_state["messages"].append({
-                            "role": "assistant",
-                            "content": output_text
-                        })
-
-                    else:
-
-                        st.error(
-                            f"API Error: {response.status_code}"
-                        )
-
-                        st.write(response.text)
+                    st.session_state["messages"].append({
+                        "role": "assistant",
+                        "content": output_text
+                    })
 
             except Exception as e:
-
-                st.error(f"Error: {str(e)}")
+                # গুগলের ওভারলোড এবং রেট লিমিট এরর ফিল্টার
+                error_msg = str(e)
+                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                    st.warning("⚠️ গুগলের ফ্রি সার্ভারে এখন অনেক চাপ। অনুগ্রহ করে ৩০ সেকেন্ড পর আপনার প্রশ্নটি আবার সাবমিট করুন।")
+                elif "403" in error_msg or "PERMISSION_DENIED" in error_msg:
+                    st.error("🔒 আপনার API Key-টি ব্লক বা লিক হয়েছে। অনুগ্রহ করে AI Studio থেকে ফ্রেশ Key নিয়ে Secrets-এ আপডেট করুন।")
+                else:
+                    st.error("দুঃখিত, কিতাবখানা থেকে উত্তর তৈরিতে সাময়িক সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।")
