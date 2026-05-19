@@ -291,7 +291,6 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                         )
 
                     # ---------------- FINAL PROMPT ----------------
-                    # ফ্রি এপিআই এর কোটা সুরক্ষায় অক্ষরের লিমিট ৩০,০০০ এ রাখা হয়েছে যাতে ক্র্যাশ না করে
                     final_prompt = f"""
 তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার।
 
@@ -330,8 +329,9 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 """
 
                     # ---------------- GEMINI ----------------
+                    # এখানে মডেল নাম সঠিক ফরম্যাটে সংশোধন করা হয়েছে
                     response = client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="models/gemini-2.5-flash",
                         contents=final_prompt
                     )
 
@@ -345,7 +345,7 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                     })
 
             except Exception as e:
-                # গুগলের ওভারলোড এবং রেট লিমিট এরর ফিল্টার
+                # গুগলের এপিআই এরর ফিল্টার
                 error_msg = str(e)
                 if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
                     st.warning("⚠️ গুগলের ফ্রি সার্ভারে এখন অনেক চাপ। অনুগ্রহ করে ৩০ সেকেন্ড পর আপনার প্রশ্নটি আবার সাবমিট করুন।")
