@@ -356,16 +356,22 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 ৩. অপ্রয়োজনীয় বড় উত্তর দিবে না।
 """
 
-                    # ================= API =================
-                    url = "https://uai.sh/v1/chat/completions"
+                    # ================= API (Groq) =================
+                    url = "https://api.groq.com/openai/v1/chat/completions"
+
+                    try:
+                        api_key = st.secrets["DEEPSEEK_API_KEY"]
+                    except KeyError:
+                        st.error("⚠️ Streamlit Secrets এ 'DEEPSEEK_API_KEY' সেট করা হয়নি!")
+                        st.stop()
 
                     headers = {
-                        "Authorization": "Bearer YOUR_API_KEY",
+                        "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json"
                     }
 
                     payload = {
-                        "model": "deepseek/deepseek-chat",
+                        "model": "llama-3.3-70b-versatile",
                         "messages": [
                             {
                                 "role": "user",
