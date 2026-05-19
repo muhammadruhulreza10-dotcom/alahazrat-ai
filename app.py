@@ -175,10 +175,20 @@ available_books = [
     if f.endswith(".pdf")
 ]
 
-# ---------------- GEMINI API ----------------
-api_key = st.secrets["GEMINI_API_KEY"]
+# ---------------- GEMINI MULTI-KEY CONFIG ----------------
+# এখানে আমরা Secrets থেকে আমাদের নতুন দুইটা কী-এর লিস্ট রিড করছি
+api_keys = st.secrets["GEMINI_API_KEYS"]
 
-client = genai.Client(api_key=api_key)
+if "current_key_index" not in st.session_state:
+    st.session_state["current_key_index"] = 0
+
+current_index = st.session_state["current_key_index"]
+if current_index >= len(api_keys):
+    current_index = 0
+    st.session_state["current_key_index"] = 0
+
+# লিস্টের বর্তমান ইনডেক্সে থাকা সচল কী দিয়ে ক্লায়েন্ট চালু হচ্ছে
+client = genai.Client(api_key=api_keys[current_index])
 
 # ---------------- SESSION ----------------
 if "messages" not in st.session_state:
@@ -329,7 +339,6 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 """
 
                     # ---------------- GEMINI ----------------
-                    # এখানে মডেল নাম সঠিক ফরম্যাটে সংশোধন করা হয়েছে
                     response = client.models.generate_content(
                         model="models/gemini-2.5-flash",
                         contents=final_prompt
@@ -345,11 +354,17 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                     })
 
             except Exception as e:
-                # গুগলের এপিআই এরর ফিল্টার
                 error_msg = str(e)
-                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                    st.warning("⚠️ গুগলের ফ্রি সার্ভারে এখন অনেক চাপ। অনুগ্রহ করে ৩০ সেকেন্ড পর আপনার প্রশ্নটি আবার সাবমিট করুন।")
-                elif "403" in error_msg or "PERMISSION_DENIED" in error_msg:
-                    st.error("🔒 আপনার API Key-টি ব্লক বা লিক হয়েছে। অনুগ্রহ করে AI Studio থেকে ফ্রেশ Key নিয়ে Secrets-এ আপডেট করুন।")
+                # এখানে অটো-রোটেশন (এক কী ব্লক বা শেষ হলে ২য় কীতে যাওয়ার) লজিক দেওয়া আছে
+                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "403" in error_msg or "PERMISSION_DENIED" in error_msg:
+                    
+                    next_index = st.session_state["current_key_index"] + 1
+                    
+                    if next_index < len(st.secrets["GEMINI_API_KEYS"]):
+                        st.session_state["current_key_index"] = next_index
+                        st.warning("🔄 বর্তমান ফ্রি সার্ভারের কোটা শেষ হওয়ায় আপনার ব্যাকআপ সার্ভারে শিফট করা হয়েছে। অনুগ্রহ করে আর একবার প্রশ্নটি সাবমিট করুন।")
+                    else:
+                        st.session_state["current_key_index"] = 0  # সব শেষ হলে আবার শুরুতে রিসেট
+                        st.error("⚠️ দুঃখিত, যুক্ত করা সবকটি ফ্রি কী-এর দৈনিক কোটা এই মুহূর্তের জন্য শেষ। দয়া করে কিছুক্ষণ পর চেষ্টা করুন।")
                 else:
                     st.error("দুঃখিত, কিতাবখানা থেকে উত্তর তৈরিতে সাময়িক সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।")
