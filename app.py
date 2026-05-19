@@ -110,6 +110,22 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
     margin-bottom: 15px;
 }}
 
+/* চ্যাট ইনপুট বক্স মোবাইলে গায়েব হওয়া রোধ করার ফিক্স */
+[data-testid="stChatInput"] {{
+    position: fixed !important;
+    bottom: 45px !important;
+    left: 0;
+    right: 0;
+    z-index: 999999;
+    background-color: #FFFFFF !important;
+    padding: 10px !important;
+}}
+
+/* ইনপুট বক্সের নিচের ফাঁকা অংশ ঠিক করার জন্য */
+.stChatInputContainer {{
+    padding-bottom: 20px !important;
+}}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -140,4 +156,287 @@ def extract_text_from_pdfs():
 
     full_text = ""
 
-    pdf_
+    pdf_files = [
+        f for f in os.listdir(BOOK_FOLDER)
+        if f.endswith(".pdf")
+    ]
+
+    if not pdf_files:
+        return ""
+
+    for pdf_file in pdf_files:
+
+        pdf_path = os.path.join(BOOK_FOLDER, pdf_file)
+
+        try:
+            reader = PdfReader(pdf_path)
+
+            full_text += f"\n\n========== কিতাবের নাম: {pdf_file} ==========\n\n"
+
+            for page in reader.pages:
+
+                text = page.extract_text()
+
+                if text:
+                    full_text += text + "\n"
+
+        except Exception:
+            full_text += f"\n[ত্রুটি: {pdf_file} পড়া যায়নি]\n"
+
+    return full_text
+
+# ================= RELEVANT SEARCH (উন্নত সংস্করণ) =================
+def search_relevant_text(query, books_text, chunk_size=2000):
+    query_words = [w.lower() for w in query.split() if len(w) > 1]
+    if not query_words:
+        return books_text[:3000]
+
+    paragraphs = books_text.split('\n\n')
+    scored_chunks = []
+    
+    current_chunk = ""
+    for para in paragraphs:
+        if len(current_chunk) + len(para) < chunk_size:
+            current_chunk += "\n\n" + para
+        else:
+            if current_chunk.strip():
+                score = sum(1 for word in query_words if word in current_chunk.lower())
+                if score > 0:
+                    scored_chunks.append((score, current_chunk))
+            current_chunk = para
+
+    if current_chunk.strip():
+        score = sum(1 for word in query_words if word in current_chunk.lower())
+        if score > 0:
+            scored_chunks.append((score, current_chunk))
+
+    scored_chunks.sort(reverse=True, key=lambda x: x[0])
+    
+    if scored_chunks:
+        return "\n\n---\n\n".join([c[1] for c in scored_chunks[:3]])
+    
+    return books_text[:3000]
+
+# ================= AVAILABLE BOOKS =================
+available_books = [
+    f for f in os.listdir(BOOK_FOLDER)
+    if f.endswith(".pdf")
+]
+
+# ================= SESSION =================
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
+
+# ================= SIDEBAR =================
+with st.sidebar:
+
+    st.markdown(
+        '<div class="sidebar-header">📖 বর্তমান কিতাবসমূহ</div>',
+        unsafe_allow_html=True
+    )
+
+    if available_books:
+
+        st.success(f"{len(available_books)} টি কিতাব পাওয়া গেছে")
+
+        for book in available_books:
+            st.markdown(f"🔹 **{book}**")
+
+    else:
+        st.error("⚠️ এখনো কোনো PDF upload করা হয়নি")
+
+    st.markdown("---")
+
+    st.markdown(
+        '<div class="sidebar-header">📤 PDF Upload করুন</div>',
+        unsafe_allow_html=True
+    )
+
+    uploaded_files = st.file_uploader(
+        "এখানে PDF upload করুন",
+        type=["pdf"],
+        accept_multiple_files=True
+    )
+
+    if uploaded_files:
+
+        for uploaded_file in uploaded_files:
+
+            save_path = os.path.join(
+                BOOK_FOLDER,
+                uploaded_file.name
+            )
+
+            with open(save_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+
+        st.success("✅ PDF সফলভাবে Upload হয়েছে")
+
+        st.cache_data.clear()
+
+        st.rerun()
+
+    st.markdown("---")
+
+    if st.button("🗑️ নতুন চ্যাট শুরু করুন", use_container_width=True):
+
+        st.session_state["messages"] = []
+
+        st.rerun()
+
+# ================= OLD CHAT =================
+for message in st.session_state["messages"]:
+
+    with st.chat_message(message["role"]):
+
+        st.write(message["content"], unsafe_allow_html=True)
+
+# ================= CHAT INPUT =================
+if prompt := st.chat_input("কিতাব সম্পর্কে প্রশ্ন লিখুন..."):
+
+    st.session_state["messages"].append({
+        "role": "user",
+        "content": prompt
+    })
+
+    with st.chat_message("user"):
+
+        st.write(prompt)
+
+    with st.chat_message("assistant"):
+
+        with st.spinner("কিতাব থেকে উত্তর খোঁজা হচ্ছে..."):
+
+            try:
+
+                # ================= LOAD BOOKS =================
+                books_content = extract_text_from_pdfs()
+
+                if not books_content.strip():
+
+                    st.warning("প্রথমে PDF Upload করুন")
+
+                else:
+
+                    # ================= SEARCH RELEVANT TEXT =================
+                    relevant_text = search_relevant_text(
+                        prompt,
+                        books_content
+                    )
+
+                    # ================= CHAT HISTORY =================
+                    chat_history = ""
+
+                    for msg in st.session_state["messages"][-4:-1]:
+
+                        role_name = (
+                            "ইউজার"
+                            if msg["role"] == "user"
+                            else "সহকারী"
+                        )
+
+                        chat_history += (
+                            f"{role_name}: {msg['content']}\n"
+                        )
+
+                    # ================= FINAL PROMPT =================
+                    final_prompt = f"""
+তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার।
+
+শুধুমাত্র নিচে দেওয়া কিতাবের অংশ থেকে উত্তর দিবে।
+
+মনগড়া কিছু বলা যাবে না।
+
+তথ্য না পেলে বলবে:
+"এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি"
+
+পূর্ববর্তী চ্যাট:
+{chat_history}
+
+ব্যবহারকারীর প্রশ্ন:
+{prompt}
+
+কিতাবের relevant অংশ:
+{relevant_text}
+
+বিশেষ নির্দেশনা:
+
+১. উত্তর বাংলা ভাষায় দিবে।
+
+২. আরবি/উর্দু ইবারত দিলে এই format ব্যবহার করবে:
+
+<div class='arabic-ur-ibarath'>
+আরবি/উর্দু টেক্সট
+</div>
+
+<div class='bengali-translation'>
+বাংলা অনুবাদ
+</div>
+
+৩. অপ্রয়োজনীয় বড় উত্তর দিবে না।
+"""
+
+                    # ================= API (Groq) =================
+                    url = "https://api.groq.com/openai/v1/chat/completions"
+
+                    try:
+                        api_key = st.secrets["DEEPSEEK_API_KEY"]
+                    except KeyError:
+                        st.error("⚠️ Streamlit Secrets এ 'DEEPSEEK_API_KEY' সেট করা হয়নি!")
+                        st.stop()
+
+                    headers = {
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    }
+
+                    payload = {
+                        "model": "llama-3.3-70b-versatile",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": final_prompt
+                            }
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": 1200
+                    }
+
+                    # ================= REQUEST =================
+                    response = requests.post(
+                        url,
+                        json=payload,
+                        headers=headers,
+                        timeout=60
+                    )
+
+                    # ================= RESPONSE =================
+                    if response.status_code == 200:
+
+                        response_data = response.json()
+
+                        output_text = response_data[
+                            "choices"
+                        ][0]["message"]["content"]
+
+                        st.write(
+                            output_text,
+                            unsafe_allow_html=True
+                        )
+
+                        st.session_state["messages"].append({
+                            "role": "assistant",
+                            "content": output_text
+                        })
+
+                    else:
+
+                        st.error(
+                            f"API Error: {response.status_code}"
+                        )
+
+                        st.write(response.text)
+
+            except Exception as e:
+
+                st.error(f"Error: {str(e)}")
