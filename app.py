@@ -1,5 +1,6 @@
 import streamlit as st
-from openai import OpenAI  # নতুন প্ল্যাটফর্মের জন্য OpenAI লাইব্রেরি প্রয়োজন
+from google import genai
+from google.genai import types  # গুগলের নতুন SDK কনফিগারেশনের জন্য
 from pypdf import PdfReader
 import os
 
@@ -92,7 +93,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 """, unsafe_allow_html=True)
 
 # ---------------- TITLE & SHER ----------------
-st.markdown('<div class="main-title">📚  ইমাম আহমদ রেজা খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">📚 ইমাম আহমদ রেজা খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">কিতাবসমূহ থেকে নির্ভরযোগ্য উত্তর অনুসন্ধান</div>', unsafe_allow_html=True)
 
 st.markdown("""
@@ -123,22 +124,20 @@ def extract_text_from_pdfs():
                 if text:
                     full_text += text + "\n"
         except Exception:
-            full_text += f"\n[ত্রুটি: {pdf_file} কিতাবটি পড়া যায়নি]\n"
+            full_text += f"\n[ত্রুটি: {pdf_file} কিতাবটি পড়া যায়নি]\n"
             
     return full_text
 
 # ---------------- AVAILABLE BOOKS ----------------
 available_books = [f for f in os.listdir(BOOK_FOLDER) if f.endswith(".pdf")]
 
-# ---------------- NEW API CONFIGURATION (uai.sh) ----------------
-# আপনার অ্যাকাউন্ট থেকে পাওয়া স্থায়ী নতুন API Key
-UAI_API_KEY = "uai-96b7863b82454c84a029e541ec98c92bbb76237b"
+# ---------------- GEMINI API INIT ----------------
+if "GEMINI_API_KEY" not in st.secrets:
+    st.error("⚠️ Streamlit Secrets-এ 'GEMINI_API_KEY' খুঁজে পাওয়া যায়নি! দয়া করে সেটিংস চেক করুন।")
+    st.stop()
 
-# OpenAI ক্লায়েন্ট দিয়ে নতুন এপিআই বেইস ইউআরএল সেট করা
-client = OpenAI(
-    base_url="https://uai.sh/v1",
-    api_key=UAI_API_KEY,
-)
+api_key = st.secrets["GEMINI_API_KEY"]
+client = genai.Client(api_key=api_key)
 
 # ---------------- SESSION STATE ----------------
 if "messages" not in st.session_state:
@@ -149,11 +148,11 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header">📖 বর্তমান কিতাবসমূহ</div>', unsafe_allow_html=True)
     
     if available_books:
-        st.success(f"{len(available_books)} টি কিতাব পাওয়া গেছে")
+        st.success(f"{len(available_books)} টি কিতাব পাওয়া গেছে")
         for book in available_books:
             st.markdown(f"🔹 **{book}**")
     else:
-        st.error("⚠️ এখনো কোনো PDF upload করা হয়নি")
+        st.error("⚠️ এখনো কোনো PDF upload করা হয়নি")
 
     st.markdown("---")
     st.markdown('<div class="sidebar-header">📤 PDF Upload করুন</div>', unsafe_allow_html=True)
@@ -170,7 +169,7 @@ with st.sidebar:
             with open(save_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
 
-        st.success("✅ PDF সফলভাবে Upload হয়েছে")
+        st.success("✅ PDF সফলভাবে Upload হয়েছে")
         st.cache_data.clear()
         st.rerun()
 
@@ -206,45 +205,41 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                         role_name = "ইউজার" if msg["role"] == "user" else "সহকারী"
                         chat_history += f"{role_name}: {msg['content']}\n"
 
-                    # সিস্টেম প্রম্পট বা নির্দেশনা
+                    # গুগলের সিস্টেম ইন্সট্রাকশন
                     system_instruction = (
-                        "তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার। তোমার কাজ নিচে দেওয়া কিতাবের টেক্সট থেকে উত্তর দেওয়া।\n"
+                        "তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার। তোমার কাজ নিচে দেওয়া কিতাবের টেক্সট থেকে উত্তর দেওয়া।\n"
                         "নির্দেশনা:\n"
-                        "১. শুধুমাত্র কিতাবের তথ্য থেকে উত্তর দিবে। মনগড়া কিছু বলা যাবে না।\n"
-                        "২. তথ্য না পেলে বলবে: 'এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।'\n"
-                        "৩. কিতাবের কোনো আরবি বা উর্দু ইবারত বা আয়াত/হাদিস হুবহু দিলে অবশ্যই এই HTML format ব্যবহার করবে:\n"
+                        "১. শুধুমাত্র কিতাবের তথ্য থেকে উত্তর দিবে। মনগড়া কিছু বলা যাবে না।\n"
+                        "২. তথ্য না পেলে বলবে: 'এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।'\n"
+                        "৩. কিতাবের কোনো আরবি বা উর্দু ইবারত বা আয়াত/হাদিস হুবহু দিলে অবশ্যই এই HTML format ব্যবহার করবে:\n"
                         "<div class='arabic-ur-ibarath'>আরবি বা উর্দু টেক্সট এখানে লিখবে</div>\n"
                         "<div class='bengali-translation'>বাংলা অনুবাদ এখানে লিখবে</div>\n"
-                        "৪. উত্তর স্পষ্ট বাংলা ভাষায় দিবে এবং অপ্রয়োজনীয় বড় করবে না।"
+                        "৪. উত্তর স্পষ্ট বাংলা ভাষায় দিবে এবং অপ্রয়োজনীয় বড় করবে না।"
                     )
 
-                    # ফাইনাল প্রম্পট কম্বিনেশন (টেক্সট লিমিট এখানেও ৩০,০০০ ক্যারেক্টার রাখা হয়েছে)
+                    # মূল প্রম্পট কন্টেন্ট (ফ্রি টিয়ারের জন্য ৩০,০০০ ক্যারেক্টার লিমিট)
                     final_user_prompt = f"""
-{system_instruction}
-
 পূর্ববর্তী চ্যাট ইতিহাস:
 {chat_history}
 
 ব্যবহারকারীর বর্তমান প্রশ্ন:
 {prompt}
 
-নিচে কিতাবসমূহের টেক্সট দেওয়া হলো:
+নিচে কিতাবসমূহের টেক্সট দেওয়া হলো:
 {books_content[:30000]}
 """
 
-                    # নতুন API এবং রেকমেন্ডেড শক্তিশালী ফ্রি মডেল অনুযায়ী কল
-                    response = client.chat.completions.create(
-                        model="ai21/jamba-large-1.7",
-                        messages=[
-                            {
-                                "role": "user",
-                                "content": final_user_prompt
-                            }
-                        ],
-                        temperature=0.3
+                    # Gemini 3 Flash / 2.5 Flash মডেল কলিং সিনট্যাক্স
+                    response = client.models.generate_content(
+                        model="gemini-3-flash",
+                        contents=final_user_prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_instruction,
+                            temperature=0.2,
+                        )
                     )
 
-                    output_text = response.choices[0].message.content
+                    output_text = response.text
                     st.write(output_text, unsafe_allow_html=True)
 
                     st.session_state["messages"].append({
@@ -254,7 +249,9 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 
             except Exception as e:
                 error_msg = str(e)
-                if "429" in error_msg or "rate_limit" in error_msg:
-                    st.warning("⚠️ ফ্রি সার্ভারে সাময়িক চাপ পড়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।")
+                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                    st.warning("⚠️ গুগলের ফ্রি সার্ভারে এখন অনেক চাপ। অনুগ্রহ করে ২০-৩০ সেকেন্ড পর আবার চেষ্টা করুন।")
+                elif "403" in error_msg or "PERMISSION_DENIED" in error_msg:
+                    st.error("🔒 API Key-তে সমস্যা রয়েছে। দয়া করে আপনার Google AI Studio থেকে সঠিক Key-টি Secrets-এ চেক করুন।")
                 else:
-                    st.error(f"দুঃখিত, একটি সমস্যা হয়েছে। আপনার API কী অথবা নেটওয়ার্ক কানেকশনটি চেক করুন।")
+                    st.error(f"দুঃখিত, কিতাবখানা থেকে উত্তর তৈরিতে সাময়িক সমস্যা হয়েছে। দয়া করে Secrets-এ GEMINI_API_KEY চেক করুন।")
