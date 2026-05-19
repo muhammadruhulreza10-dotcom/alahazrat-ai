@@ -344,5 +344,11 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                     })
 
             except Exception as e:
-
-                st.error(f"Error: {str(e)}")
+                # গুগলের এরর কোড ফিল্টার করে নিরাপদ ও সুন্দর বার্তা প্রদর্শন
+                error_msg = str(e)
+                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                    st.warning("⚠️ এই মুহূর্তে গুগলের ফ্রি সার্ভারে রিকোয়েস্টের চাপ একটু বেশি। অনুগ্রহ করে ১ মিনিট পর আবার চেষ্টা করুন।")
+                elif "403" in error_msg or "PERMISSION_DENIED" in error_msg:
+                    st.error("🔒 আপনার API Key-টি ব্লক বা লিক হয়েছে। অনুগ্রহ করে AI Studio থেকে নতুন Key নিয়ে Secrets আপডেট করুন।")
+                else:
+                    st.error("দুঃখিত, কিতাবখানা থেকে উত্তর তৈরিতে সাময়িক সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।")
