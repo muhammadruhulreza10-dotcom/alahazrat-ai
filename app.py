@@ -176,7 +176,6 @@ available_books = [
 ]
 
 # ---------------- GEMINI MULTI-KEY CONFIG ----------------
-# এখানে আমরা Secrets থেকে আমাদের নতুন দুইটা কী-এর লিস্ট রিড করছি
 api_keys = st.secrets["GEMINI_API_KEYS"]
 
 if "current_key_index" not in st.session_state:
@@ -187,7 +186,6 @@ if current_index >= len(api_keys):
     current_index = 0
     st.session_state["current_key_index"] = 0
 
-# লিস্টের বর্তমান ইনডেক্সে থাকা সচল কী দিয়ে ক্লায়েন্ট চালু হচ্ছে
 client = genai.Client(api_key=api_keys[current_index])
 
 # ---------------- SESSION ----------------
@@ -301,6 +299,7 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                         )
 
                     # ---------------- FINAL PROMPT ----------------
+                    # এখানে লিমিট সরিয়ে সরাসরি {books_content} দেওয়া হয়েছে যাতে জেমিনি পুরো বই পড়তে পারে
                     final_prompt = f"""
 তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার।
 
@@ -312,7 +311,7 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 
 নিচে কিতাবসমূহের টেক্সট দেওয়া হলো:
 
-{books_content[:30000]}
+{books_content}
 
 নির্দেশনা:
 
@@ -355,7 +354,6 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 
             except Exception as e:
                 error_msg = str(e)
-                # এখানে অটো-রোটেশন (এক কী ব্লক বা শেষ হলে ২য় কীতে যাওয়ার) লজিক দেওয়া আছে
                 if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "403" in error_msg or "PERMISSION_DENIED" in error_msg:
                     
                     next_index = st.session_state["current_key_index"] + 1
@@ -364,7 +362,7 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                         st.session_state["current_key_index"] = next_index
                         st.warning("🔄 বর্তমান ফ্রি সার্ভারের কোটা শেষ হওয়ায় আপনার ব্যাকআপ সার্ভারে শিফট করা হয়েছে। অনুগ্রহ করে আর একবার প্রশ্নটি সাবমিট করুন।")
                     else:
-                        st.session_state["current_key_index"] = 0  # সব শেষ হলে আবার শুরুতে রিসেট
+                        st.session_state["current_key_index"] = 0  
                         st.error("⚠️ দুঃখিত, যুক্ত করা সবকটি ফ্রি কী-এর দৈনিক কোটা এই মুহূর্তের জন্য শেষ। দয়া করে কিছুক্ষণ পর চেষ্টা করুন।")
                 else:
                     st.error("দুঃখিত, কিতাবখানা থেকে উত্তর তৈরিতে সাময়িক সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।")
