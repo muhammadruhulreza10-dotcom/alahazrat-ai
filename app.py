@@ -19,7 +19,7 @@ if not os.path.exists(BOOK_FOLDER):
 # ---------------- BACKGROUND IMAGE ----------------
 image_url = "https://images.vectorstock.com/preview-w850/22/21/ala-hazrat-tomb-ahmed-raza-khan-bareilly-vector-27702122.jpg"
 
-# ---------------- CSS ----------------
+# ---------------- CSS FIXED FOR ARABIC FONTS ----------------
 st.markdown(f"""
 <style>
 
@@ -77,30 +77,28 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
     margin-bottom: 10px;
 }}
 
+/* আরবি হরফ ও ব্র্যাকেট ভাঙা রোধ করার জন্য স্পেশাল সিএসএস */
 .arabic-ur-ibarath {{
     direction: rtl !important;
     text-align: right !important;
+    unicode-bidi: embed !important;
 
     font-family:
+    'Scheherazade New',
     'Traditional Arabic',
     'Amiri',
     'Noto Naskh Arabic',
     sans-serif !important;
 
-    font-size: 1.7rem !important;
-    line-height: 2.2 !important;
-
+    font-size: 1.8rem !important;
+    line-height: 2.4 !important;
     color: #0F4C3A !important;
-
     background-color: #F7FAFC !important;
-
-    padding: 15px;
+    padding: 15px 20px;
     border-radius: 8px;
-
-    border-right: 5px solid #0F4C3A;
-
-    margin-top: 10px;
-    margin-bottom: 10px;
+    border-right: 6px solid #0F4C3A;
+    margin-top: 15px;
+    margin-bottom: 15px;
 }}
 
 .bengali-translation {{
@@ -299,7 +297,6 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                         )
 
                     # ---------------- FINAL PROMPT ----------------
-                    # এখানে লিমিট সরিয়ে সরাসরি {books_content} দেওয়া হয়েছে যাতে জেমিনি পুরো বই পড়তে পারে
                     final_prompt = f"""
 তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার।
 
@@ -315,26 +312,23 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 
 নির্দেশনা:
 
-১. শুধুমাত্র কিতাবের তথ্য থেকে উত্তর দিবে।
+১. শুধুমাত্র কিতাবের তথ্য থেকে উত্তর দিবে। মনগড়া কিছু বলা যাবে না।
 
-২. মনগড়া কিছু বলা যাবে না।
+২. তথ্য না পেলে বলবে: "এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি"
 
-৩. তথ্য না পেলে বলবে:
-"এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি"
-
-৪. আয়াত বা ইবারত দিলে এই format ব্যবহার করবে:
+৩. খুব গুরুত্বপূর্ণ: যেকোনো আরবি ইবারত, কোরআনের আয়াত বা হাদিসের মূল টেক্সট দেওয়ার সময় অবশ্যই এবং বাধ্যতামূলকভাবে নিচের HTML ফরম্যাটে দিবে। আরবি লেখার ভেতরে কোনো বাংলা ব্র্যাকেট বা বাংলা শব্দ মিক্স করবে না। সম্পূর্ণ আরবি অংশটুকুকে এই বক্সের ভেতরে রাখবে:
 
 <div class='arabic-ur-ibarath'>
-আরবি/উর্দু টেক্সট
+এখানে শুধুমাত্র সম্পূর্ণ আরবি লেখাটি লিখবে (যাতে কোনো বাংলা মিক্স থাকবে না)
 </div>
+
+৪. আরবি ইবারতের ঠিক নিচে তার বাংলা অনুবাদ এই ফরম্যাটে দিবে:
 
 <div class='bengali-translation'>
-বাংলা অনুবাদ
+বাংলা অনুবাদ বা ব্যাখ্যা এখানে লিখবে।
 </div>
 
-৫. উত্তর বাংলা ভাষায় দিবে।
-
-৬. অপ্রয়োজনীয় বড় উত্তর দিবে না।
+৫. সামগ্রিক উত্তর বাংলা ভাষায় দিবে এবং অপ্রয়োজনীয় বড় উত্তর দিবে না।
 """
 
                     # ---------------- GEMINI ----------------
