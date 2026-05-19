@@ -1,6 +1,5 @@
 import streamlit as st
-from google import genai
-from google.genai import types  # নতুন SDK-এর কনফিগারেশনের জন্য প্রয়োজন
+from openai import OpenAI  # Unify AI এর জন্য এটি প্রয়োজন
 from pypdf import PdfReader
 import os
 
@@ -131,10 +130,14 @@ def extract_text_from_pdfs():
 # ---------------- AVAILABLE BOOKS ----------------
 available_books = [f for f in os.listdir(BOOK_FOLDER) if f.endswith(".pdf")]
 
-# ---------------- GEMINI API INIT (NEW KEY SET) ----------------
-# আপনার নতুন জেমিনী এপিআই কী সরাসরি কোডে সেট করা হলো
-NEW_GEMINI_KEY = "AIzaSyCWkaCi-5xQGftBAXsjSQIY2-G5pGcNYgs"
-client = genai.Client(api_key=NEW_GEMINI_KEY)
+# ---------------- UAI API CONFIGURATION ----------------
+# আপনার স্ক্রিনশট থেকে পাওয়া সচল এবং স্থায়ী UAI কী এখানে সরাসরি সেট করা হয়েছে
+UAI_API_KEY = "uai-96b7863b82454c84a029e541ec98c92bbb76237b"
+
+client = OpenAI(
+    base_url="https://uai.sh/v1",
+    api_key=UAI_API_KEY,
+)
 
 # ---------------- SESSION STATE ----------------
 if "messages" not in st.session_state:
@@ -142,7 +145,7 @@ if "messages" not in st.session_state:
 
 # ---------------- SIDEBAR ----------------
 with st.sidebar:
-    st.markdown('<div class="sidebar-header">📖 বর্তমান কিতাবসমূহ</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-header">📖  বর্তমান কিতাবসমূহ</div>', unsafe_allow_html=True)
     
     if available_books:
         st.success(f"{len(available_books)} টি কিতাব পাওয়া গেছে")
@@ -202,11 +205,11 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                         role_name = "ইউজার" if msg["role"] == "user" else "সহকারী"
                         chat_history += f"{role_name}: {msg['content']}\n"
 
-                    # সিস্টেম ইন্সট্রাকশন
+                    # সিস্টেম প্রম্পট বা প্রজ্ঞাবান নির্দেশনা
                     system_instruction = (
                         "তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার। তোমার কাজ নিচে দেওয়া কিতাবের টেক্সট থেকে উত্তর দেওয়া।\n"
                         "নির্দেশনা:\n"
-                        "১. শুধুমাত্র কিতাবের তথ্য থেকে উত্তর দিবে। মনগড়া কিছু বলা যাবে না。\n"
+                        "১. শুধুমাত্র কিতাবের তথ্য থেকে উত্তর দিবে। মনগড়া কিছু বলা যাবে না।\n"
                         "২. তথ্য না পেলে বলবে: 'এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।'\n"
                         "৩. কিতাবের কোনো আরবি বা উর্দু ইবারত বা আয়াত/হাদিস হুবহু দিলে অবশ্যই এই HTML format ব্যবহার করবে:\n"
                         "<div class='arabic-ur-ibarath'>আরবি বা উর্দু টেক্সট এখানে লিখবে</div>\n"
@@ -214,7 +217,10 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                         "৪. উত্তর স্পষ্ট বাংলা ভাষায় দিবে এবং অপ্রয়োজনীয় বড় করবে না।"
                     )
 
+                    # নতুন API এর ফর্ম্যাট অনুযায়ী প্রম্পট সাজানো
                     final_user_prompt = f"""
+{system_instruction}
+
 পূর্ববর্তী চ্যাট ইতিহাস:
 {chat_history}
 
@@ -225,17 +231,19 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 {books_content[:30000]}
 """
 
-                    # নতুন SDK-এর সিনট্যাক্স অনুযায়ী সফল কল
-                    response = client.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=final_user_prompt,
-                        config=types.GenerateContentConfig(
-                            system_instruction=system_instruction,
-                            temperature=0.3,
-                        )
+                    # Unify AI এর রেকমেন্ডেড শক্তিশালী ও ফ্রি মডেল দিয়ে কল
+                    response = client.chat.completions.create(
+                        model="ai21/jamba-large-1.7",
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": final_user_prompt
+                            }
+                        ],
+                        temperature=0.3
                     )
 
-                    output_text = response.text
+                    output_text = response.choices[0].message.content
                     st.write(output_text, unsafe_allow_html=True)
 
                     st.session_state["messages"].append({
@@ -245,9 +253,7 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 
             except Exception as e:
                 error_msg = str(e)
-                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                    st.warning("⚠️ গুগলের ফ্রি সার্ভারে এখন অনেক চাপ। অনুগ্রহ করে ২০-৩০ সেকেন্ড পর আবার চেষ্টা করুন।")
-                elif "403" in error_msg or "PERMISSION_DENIED" in error_msg:
-                    st.error("🔒 এপিআই কী ভেরিফিকেশন সফল হয়নি। অনুগ্রহ করে নিশ্চিত করুন আপনার এআই স্টুডিওতে কী-টি সক্রিয় আছে কি না।")
+                if "429" in error_msg or "rate_limit" in error_msg:
+                    st.warning("⚠️ ফ্রি সার্ভারে সাময়িক ট্রাফিক জ্যাম। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।")
                 else:
                     st.error(f"দুঃখিত, কিতাবখানা সিস্টেমে একটি অভ্যন্তরীণ সমস্যা হয়েছে।")
