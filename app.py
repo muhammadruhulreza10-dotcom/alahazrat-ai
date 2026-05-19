@@ -1,5 +1,5 @@
 import streamlit as st
-from openai import OpenAI  # Unify AI এর জন্য এটি প্রয়োজন
+import requests  # সরাসরি API কল করার জন্য
 from pypdf import PdfReader
 import os
 
@@ -92,7 +92,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 """, unsafe_allow_html=True)
 
 # ---------------- TITLE & SHER ----------------
-st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">📚  ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">কিতাবসমূহ থেকে নির্ভরযোগ্য উত্তর অনুসন্ধান</div>', unsafe_allow_html=True)
 
 st.markdown("""
@@ -130,15 +130,6 @@ def extract_text_from_pdfs():
 # ---------------- AVAILABLE BOOKS ----------------
 available_books = [f for f in os.listdir(BOOK_FOLDER) if f.endswith(".pdf")]
 
-# ---------------- UAI API CONFIGURATION ----------------
-# আপনার স্ক্রিনশট থেকে পাওয়া সচল এবং স্থায়ী UAI কী এখানে সরাসরি সেট করা হয়েছে
-UAI_API_KEY = "uai-96b7863b82454c84a029e541ec98c92bbb76237b"
-
-client = OpenAI(
-    base_url="https://uai.sh/v1",
-    api_key=UAI_API_KEY,
-)
-
 # ---------------- SESSION STATE ----------------
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
@@ -152,7 +143,7 @@ with st.sidebar:
         for book in available_books:
             st.markdown(f"🔹 **{book}**")
     else:
-        st.error("⚠️ এখনো কোনো PDF upload করা হয়নি")
+        st.error("⚠️  এখনো কোনো PDF upload করা হয়নি")
 
     st.markdown("---")
     st.markdown('<div class="sidebar-header">📤 PDF Upload করুন</div>', unsafe_allow_html=True)
@@ -199,13 +190,11 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                 if not books_content.strip():
                     st.warning("প্রথমে সাইডবার থেকে PDF Upload করুন।")
                 else:
-                    # চ্যাট হিস্ট্রি তৈরি (সর্বশেষ ৩টি মেসেজ)
                     chat_history = ""
                     for msg in st.session_state["messages"][-4:-1]:
                         role_name = "ইউজার" if msg["role"] == "user" else "সহকারী"
                         chat_history += f"{role_name}: {msg['content']}\n"
 
-                    # সিস্টেম প্রম্পট বা প্রজ্ঞাবান নির্দেশনা
                     system_instruction = (
                         "তুমি একজন প্রজ্ঞাবান ও নির্ভরযোগ্য ইসলামিক স্কলার। তোমার কাজ নিচে দেওয়া কিতাবের টেক্সট থেকে উত্তর দেওয়া।\n"
                         "নির্দেশনা:\n"
@@ -217,7 +206,6 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
                         "৪. উত্তর স্পষ্ট বাংলা ভাষায় দিবে এবং অপ্রয়োজনীয় বড় করবে না।"
                     )
 
-                    # নতুন API এর ফর্ম্যাট অনুযায়ী প্রম্পট সাজানো
                     final_user_prompt = f"""
 {system_instruction}
 
@@ -231,29 +219,35 @@ if prompt := st.chat_input("কিতাব সম্পর্কে প্র�
 {books_content[:30000]}
 """
 
-                    # Unify AI এর রেকমেন্ডেড শক্তিশালী ও ফ্রি মডেল দিয়ে কল
-                    response = client.chat.completions.create(
-                        model="ai21/jamba-large-1.7",
-                        messages=[
-                            {
-                                "role": "user",
-                                "content": final_user_prompt
-                            }
+                    # ---------------- DIRECT HTTP REQUEST TO UAI ----------------
+                    url = "https://uai.sh/v1/chat/completions"
+                    headers = {
+                        "Authorization": "Bearer uai-96b7863b82454c84a029e541ec98c92bbb76237b",
+                        "Content-Type": "application/json"
+                    }
+                    payload = {
+                        "model": "ai21/jamba-large-1.7",
+                        "messages": [
+                            {"role": "user", "content": final_user_prompt}
                         ],
-                        temperature=0.3
-                    )
+                        "temperature": 0.3
+                    }
 
-                    output_text = response.choices[0].message.content
-                    st.write(output_text, unsafe_allow_html=True)
+                    # সরাসরি সার্ভার কল (পাইথন লাইব্রেরির এরর বাইপাস করার জন্য)
+                    response = requests.post(url, json=payload, headers=headers)
+                    
+                    if response.status_code == 200:
+                        response_data = response.json()
+                        output_text = response_data['choices'][0]['message']['content']
+                        
+                        st.write(output_text, unsafe_allow_html=True)
 
-                    st.session_state["messages"].append({
-                        "role": "assistant",
-                        "content": output_text
-                    })
+                        st.session_state["messages"].append({
+                            "role": "assistant",
+                            "content": output_text
+                        })
+                    else:
+                        st.error(f"সার্ভার থেকে রেসপন্স পাওয়া যায়নি। স্ট্যাটাস কোড: {response.status_code}")
 
             except Exception as e:
-                error_msg = str(e)
-                if "429" in error_msg or "rate_limit" in error_msg:
-                    st.warning("⚠️ ফ্রি সার্ভারে সাময়িক ট্রাফিক জ্যাম। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।")
-                else:
-                    st.error(f"দুঃখিত, কিতাবখানা সিস্টেমে একটি অভ্যন্তরীণ সমস্যা হয়েছে।")
+                st.error("দুঃখিত, কিতাবখানা সিস্টেমে একটি অভ্যন্তরীণ সমস্যা হয়েছে।")
