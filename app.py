@@ -63,17 +63,17 @@ st.markdown('<div class="sub-title">Gemini API ও File API দ্বারা �
 st.markdown("""
 <div class="urdu-sher-container">
 <div class="urdu-text">
-ملکِ سخন کی شاہی تم کو رضاؔ مسلم <br>
+ملکِ سخن کی شاہی تم کو رضاؔ مسلم <br>
 جس سمت آ گئے ہو سکے بٹھا دیے ہیں
 </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------- GEMINI MULTI-KEY DIRECT CONFIG ----------------
+# ---------------- GEMINI TWO-KEY CONFIG ----------------
+# এখানে শুধু আপনার দেওয়া নতুন ২টি সচল কী রাখা হয়েছে
 GEMINI_API_KEYS = [
-    "AIzaSyArCuCbe5QVmvlnqIGwEOYJyJsWeEI3GcM",
-    "AIzaSyBsaHNGkUQKHWWmR_1SRXg6JUAd6YLYW00",
-    "AIzaSyAW696Hv5_Pny1BHHTSFijLjQcxbq3PJoo"
+    "AIzaSyC6vsaAkvRiXBOLiic50Cu9CtURyutJmGQ",
+    "AIzaSyCrki8Y2_WcdM5009kxj_iRlhp1JQ4cStA"
 ]
 
 if "current_key_index" not in st.session_state:
@@ -84,6 +84,7 @@ if current_index >= len(GEMINI_API_KEYS):
     current_index = 0
     st.session_state["current_key_index"] = 0
 
+# জেমিনি ক্লায়েন্ট ইনিশিয়ালাইজেশন
 client = genai.Client(api_key=GEMINI_API_KEYS[current_index])
 
 # ---------------- SESSION STATES ----------------
@@ -191,7 +192,7 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
                     contents_payload.append(system_instruction)
                     
                     response = client.models.generate_content(
-                        model="gemini-2.5-pro",
+                        model="models/gemini-2.5-pro",
                         contents=contents_payload
                     )
                     
