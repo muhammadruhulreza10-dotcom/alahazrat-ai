@@ -1,8 +1,8 @@
 import streamlit as st
 import google.genai as genai
 from google.genai import types
+from pypdf import PdfReader
 import os
-import time
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -10,11 +10,6 @@ st.set_page_config(
     page_icon="📚",
     layout="centered"
 )
-
-# ---------------- AUTO CREATE TEMP FOLDER ----------------
-TEMP_FOLDER = "temp_books"
-if not os.path.exists(TEMP_FOLDER):
-    os.makedirs(TEMP_FOLDER)
 
 # ---------------- BACKGROUND IMAGE ----------------
 image_url = "https://images.vectorstock.com/preview-w850/22/21/ala-hazrat-tomb-ahmed-raza-khan-bareilly-vector-27702122.jpg"
@@ -58,12 +53,12 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
 
 # ---------------- TITLE & SHER ----------------
 st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Gemini API ও File API দ্বারা চালিত কাস্টম কিতাব সার্চ ইঞ্জিন</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Gemini API দ্বারা চালিত কাস্টম কিতাব সার্চ ইঞ্জিন</div>', unsafe_allow_html=True)
 
 st.markdown("""
 <div class="urdu-sher-container">
 <div class="urdu-text">
-ملکِ سخন کی شاہی تم کو رضاؔ مسلم <br>
+ملکِ سخن کی شاہی تم کو رضاؔ مسلم <br>
 جس سمت آ گئے ہو سکے بٹھا دیے ہیں
 </div>
 </div>
@@ -83,7 +78,6 @@ if current_index >= len(GEMINI_API_KEYS):
     current_index = 0
     st.session_state["current_key_index"] = 0
 
-# জেমিনি ক্লায়েন্ট ইনিশিয়ালাইজেশন
 client = genai.Client(api_key=GEMINI_API_KEYS[current_index])
 
 # ---------------- SESSION STATES ----------------
@@ -93,8 +87,8 @@ if "messages" not in st.session_state:
 if "uploaded_file_names" not in st.session_state:
     st.session_state["uploaded_file_names"] = []
 
-if "uploaded_file_objects" not in st.session_state:
-    st.session_state["uploaded_file_objects"] = []
+if "extracted_books_content" not in st.session_state:
+    st.session_state["extracted_books_content"] = ""
 
 # ---------------- SIDEBAR ----------------
 with st.sidebar:
@@ -111,37 +105,30 @@ with st.sidebar:
     uploaded_files = st.file_uploader("এখানে PDF ফাইল ড্রপ করুন", type=["pdf"], accept_multiple_files=True)
 
     if uploaded_files:
-        with st.spinner("গুগল সার্ভারে ফাইল আপলোড ও ইন্ডেক্সিং হচ্ছে..."):
+        with st.spinner("কিতাব থেকে তথ্য এক্সট্রাক্ট করা হচ্ছে..."):
             for uploaded_file in uploaded_files:
                 if uploaded_file.name not in st.session_state["uploaded_file_names"]:
-                    temp_path = os.path.join(TEMP_FOLDER, uploaded_file.name)
-                    with open(temp_path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-                    
                     try:
-                        google_file = client.files.upload(file=temp_path)
+                        # ইন-মেমোরি পিডিএফ রিডিং লজিক (যা সুপার ফাস্ট ও লুপফ্রি)
+                        reader = PdfReader(uploaded_file)
+                        text_content = f"\n\n========== কিতাবের নাম: {uploaded_file.name} ==========\n\n"
+                        for page in reader.pages:
+                            text = page.extract_text()
+                            if text:
+                                text_content += text + "\n"
                         
-                        while google_file.state.name == "PROCESSING":
-                            time.sleep(2)
-                            google_file = client.files.get(name=google_file.name)
-                        
-                        if google_file.state.name == "FAILED":
-                            st.error(f"❌ {uploaded_file.name} গুগল সার্ভারে প্রসেস করা যায়নি।")
-                            continue
-                        
-                        st.session_state["uploaded_file_objects"].append(google_file)
+                        st.session_state["extracted_books_content"] += text_content
                         st.session_state["uploaded_file_names"].append(uploaded_file.name)
-                    except Exception as upload_error:
-                        st.error(f"আপলোড এরর: {str(upload_error)}")
-                    finally:
-                        if os.path.exists(temp_path):
-                            os.remove(temp_path)
+                    except Exception as parse_error:
+                        st.error(f"ফাইল পড়তে সমস্যা হয়েছে: {str(parse_error)}")
             st.success("✅ কিতাব সফলভাবে যুক্ত করা হয়েছে!")
             st.rerun()
 
     st.markdown("---")
     if st.button("🗑️ নতুন চ্যাট শুরু করুন", use_container_width=True):
         st.session_state["messages"] = []
+        st.session_state["uploaded_file_names"] = []
+        st.session_state["extracted_books_content"] = ""
         st.rerun()
 
 # ---------------- DISPLAY OLD CHAT ----------------
@@ -158,52 +145,49 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
     with st.chat_message("assistant"):
         with st.spinner("কিতাব সার্চ করা হচ্ছে..."):
             try:
-                if not st.session_state["uploaded_file_objects"]:
+                if not st.session_state["extracted_books_content"].strip():
                     st.warning("অনুগ্রহ করে প্রথমে বামপাশের সাইডবার থেকে কিতাব (PDF) আপলোড করুন।")
                 else:
-                    # ফাইল অবজেক্টগুলো পেলোডে যুক্ত করা
-                    contents_payload = []
-                    for file_obj in st.session_state["uploaded_file_objects"]:
-                        contents_payload.append(file_obj)
-                    
                     chat_history = ""
                     for msg in st.session_state["messages"][-4:-1]:
                         role_name = "ইউজার" if msg["role"] == "user" else "সহকারী"
                         chat_history += f"{role_name}: {msg['content']}\n"
 
-                    # শক্তিশালী কাস্টম নির্দেশনাবলী
+                    # অত্যন্ত স্ট্রং প্রম্পটিং লজিক
                     system_instruction = f"""
                     তুমি একজন অত্যন্ত প্রজ্ঞাবান, নির্ভরযোগ্য এবং গভীর জ্ঞানসম্পন্ন ইসলামিক স্কলার।
-                    তোমার একমাত্র কাজ হলো উপরে যুক্ত করা ফাইল বা ফাইলসমূহ পুঙ্খানুপুঙ্খভাবে বিশ্লেষণ করে উত্তর দেওয়া।
+                    তোমার মূল কাজ হলো নিচে দেওয়া কিতাবের কন্টেন্ট থেকে ব্যবহারকারীর প্রশ্নের নিখুঁত উত্তর প্রদান করা।
                     
                     চ্যাট ইতিহাস:
                     {chat_history}
                     
-                    ব্যবহারকারীর বর্তমান প্রশ্ন:
-                    {prompt}
-                    
                     তোমার কাজ ও কঠোর নির্দেশনা:
-                    ১. যুক্ত করা কিতাব বা পিডিএফ ফাইলটি অত্যন্ত গভীরভাবে স্ক্যান করে শুধু তার ভেতরের সঠিক তথ্যের ওপর ভিত্তি করে একাডেমিক উত্তর দেবে। মনগড়া বা বাইরের কোনো সাধারণ জ্ঞান যোগ করবে না।
-                    ২. যদি এই প্রশ্নের সুনির্দিষ্ট উত্তর কিতাবের কোথাও না থাকে, তবে অমূলক উত্তর না দিয়ে স্পষ্ট বলবে: "এই বিষয়ে কিতাবে সুনির্দিষ্ট তথ্য পাওয়া যায়নি।"
+                    ১. নিচে 'কিতাবের মূল কন্টেন্ট' সেকশনে যুক্ত করা ডেটা গভীরভাবে বিশ্লেষণ করে শুধু তার ভেতরের সঠিক তথ্যের ওপর ভিত্তি করে উত্তর দেবে। মনগড়া বা বাইরের কোনো তথ্য যোগ করবে না।
+                    ২. যদি এই প্রশ্নের সুনির্দিষ্ট উত্তর কিতাবের ভেতর না থাকে, তবে অমূলক উত্তর না দিয়ে স্পষ্ট বলবে: "এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।"
                     ৩. কোনো আরবি বা উর্দু ইবারত, কোরআনের আয়াত বা হাদিস সরাসরি দেওয়ার সময় বাধ্যতামূলকভাবে এই HTML ফরম্যাটে সাজাবে (আরবি বা উর্দু লেখার ভেতরে কোনো বাংলা শব্দ বা ব্র্যাকেট মিক্স করবে না):
                     <div class='arabic-ur-ibarath'>এখানে শুধু আরবি বা উর্দু টেক্সট লিখবে</div>
                     ৪. ইবারতের ঠিক নিচে তার বাংলা অনুবাদ এই ফরম্যাটে দেবে:
                     <div class='bengali-translation'>বাংলা অনুবাদ এখানে লিখবে।</div>
-                    ৫. উত্তর সম্পূর্ণ সাবলীল ও স্পষ্ট বাংলা ভাষায় সংক্ষেপে রেফারেন্সসহ প্রকাশ করবে।
+                    ৫. উত্তর সম্পূর্ণ সাবলীল ও স্পষ্ট বাংলা ভাষায় সংক্ষেপে প্রকাশ করবে।
+                    """
+
+                    # কিতাবের ডেটা সরাসরি টেক্সট আকারে মডেলে ইনজেক্ট করা হচ্ছে (সর্বোচ্চ ৬০ হাজার ক্যারেক্টার সেফটি মার্জিন)
+                    user_payload = f"""
+                    {system_instruction}
+                    
+                    [কিতাবের মূল কন্টেন্ট]:
+                    {st.session_state["extracted_books_content"][:60000]}
+                    
+                    ব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}
                     """
                     
-                    contents_payload.append(system_instruction)
-                    
-                    # কাস্টম কনফিগারেশন: তাপমাত্রা ০.০ করা হয়েছে যাতে মনগড়া ডেটা স্কিপ করে শুধু ফাইল থেকে উত্তর আনে
                     config = types.GenerateContentConfig(
-                        temperature=0.0,
-                        max_output_tokens=2048
+                        temperature=0.0
                     )
                     
-                    # SDK কনভেনশন অনুযায়ী সঠিক মডেল নির্ধারণ
                     response = client.models.generate_content(
                         model="gemini-2.5-flash",
-                        contents=contents_payload,
+                        contents=user_payload,
                         config=config
                     )
                     
