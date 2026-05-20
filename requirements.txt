@@ -1,2 +1,2 @@
-requests
-pypdf
+streamlit
+google-genai
