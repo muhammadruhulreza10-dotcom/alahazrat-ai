@@ -63,7 +63,7 @@ st.markdown('<div class="sub-title">Gemini API ও File API দ্বারা �
 st.markdown("""
 <div class="urdu-sher-container">
 <div class="urdu-text">
-ملکِ سخن کی شاہی تم کو رضاؔ مسلم <br>
+ملکِ سخন کی شاہی تم کو رضاؔ مسلم <br>
 جس سمت آ گئے ہو سکے بٹھا دیے ہیں
 </div>
 </div>
@@ -84,7 +84,6 @@ if current_index >= len(GEMINI_API_KEYS):
     current_index = 0
     st.session_state["current_key_index"] = 0
 
-# এখানে ক্লায়েন্ট ডিফাইন করার সঠিক নিয়ম
 client = genai.Client(api_key=GEMINI_API_KEYS[current_index])
 
 # ---------------- SESSION STATES ----------------
@@ -120,10 +119,8 @@ with st.sidebar:
                         f.write(uploaded_file.getbuffer())
                     
                     try:
-                        # গুগল ফাইল এপিআই ব্যবহার করে ফাইল আপলোড
                         google_file = client.files.upload(file=temp_path)
                         
-                        # ফাইল প্রসেসিং স্টেট চেক করা
                         while google_file.state.name == "PROCESSING":
                             time.sleep(2)
                             google_file = client.files.get(name=google_file.name)
@@ -165,17 +162,14 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
                     st.warning("অনুগ্রহ করে প্রথমে বামপাশের সাইডবার থেকে কিতাব (PDF) আপলোড করুন।")
                 else:
                     contents_payload = []
-                    # আপলোড করা সমস্ত ফাইলের রেফারেন্স পে-লোডে যোগ করা
                     for file_obj in st.session_state["uploaded_file_objects"]:
                         contents_payload.append(file_obj)
                     
-                    # আগের চ্যাট হিস্ট্রি প্রসেসিং
                     chat_history = ""
                     for msg in st.session_state["messages"][-4:-1]:
                         role_name = "ইউজার" if msg["role"] == "user" else "সহকারী"
                         chat_history += f"{role_name}: {msg['content']}\n"
 
-                    # জেমিনির জন্য কাস্টম সিস্টেম প্রম্পট তৈরি
                     system_instruction = f"""
                     তুমি একজন অত্যন্ত প্রজ্ঞাবান, নির্ভরযোগ্য এবং গভীর জ্ঞানসম্পন্ন ইসলামিক স্কলার।
                     চ্যাট ইতিহাস:
@@ -196,7 +190,6 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
                     
                     contents_payload.append(system_instruction)
                     
-                    # জেমিনি ২.৫ প্রো মডেল কলিং
                     response = client.models.generate_content(
                         model="gemini-2.5-pro",
                         contents=contents_payload
@@ -209,7 +202,6 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
 
             except Exception as e:
                 error_msg = str(e)
-                # মাল্টি-কী অটো রোটেশন মেকানিজম
                 if any(x in error_msg for x in ["429", "RESOURCE_EXHAUSTED", "403", "PERMISSION_DENIED"]):
                     next_index = st.session_state["current_key_index"] + 1
                     if next_index < len(GEMINI_API_KEYS):
