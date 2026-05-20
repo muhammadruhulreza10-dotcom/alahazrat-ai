@@ -2,7 +2,6 @@ import streamlit as st
 import google.genai as genai
 from google.genai import types
 from pypdf import PdfReader
-import os
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -11,28 +10,26 @@ st.set_page_config(
     layout="centered"
 )
 
-# ---------------- BACKGROUND IMAGE ----------------
-image_url = "https://images.vectorstock.com/preview-w850/22/21/ala-hazrat-tomb-ahmed-raza-khan-bareilly-vector-27702122.jpg"
-
 # ---------------- CSS FOR ARABIC, URDU & INTERFACE ----------------
-st.markdown(f"""
+# পেজ ফ্রিজিং এড়াতে CSS ডাইনামিক স্ট্রিং ফরম্যাট সম্পূর্ণ ফিক্সড করা হয়েছে
+st.markdown("""
 <style>
-html, body, [data-testid="stAppViewContainer"], .stApp {{
+html, body, [data-testid="stAppViewContainer"], .stApp {
     background-color: #FFFFFF !important;
     background-image:
-    linear-gradient(rgba(255,255,255,0.90), rgba(255,255,255,0.90)),
-    url("{image_url}") !important;
+    linear-gradient(rgba(255,255,255,0.92), rgba(255,255,255,0.92)),
+    url("https://images.vectorstock.com/preview-w850/22/21/ala-hazrat-tomb-ahmed-raza-khan-bareilly-vector-27702122.jpg") !important;
     background-size: auto 65% !important;
     background-position: center 70% !important;
     background-repeat: no-repeat !important;
     background-attachment: fixed !important;
-}}
-.main-title {{ font-size: 2rem; color: #0F4C3A; text-align: center; font-weight: bold; margin-bottom: 5px; }}
-.sub-title {{ font-size: 1.05rem; color: #2D3748; text-align: center; margin-bottom: 15px; }}
-.urdu-sher-container {{ background-color: rgba(15, 76, 58, 0.06); border: 1px solid rgba(15, 76, 58, 0.2); border-left: 5px solid #0F4C3A; padding: 18px; border-radius: 8px; text-align: center; margin-bottom: 25px; }}
-.urdu-text {{ font-size: 1.5rem; color: #0F4C3A; line-height: 1.8; direction: rtl; }}
-.sidebar-header {{ font-size: 1.1rem; color: #0F4C3A; font-weight: bold; border-bottom: 2px solid #0F4C3A; padding-bottom: 5px; margin-bottom: 10px; }}
-.arabic-ur-ibarath {{
+}
+.main-title { font-size: 2rem; color: #0F4C3A; text-align: center; font-weight: bold; margin-bottom: 5px; }
+.sub-title { font-size: 1.05rem; color: #2D3748; text-align: center; margin-bottom: 15px; }
+.urdu-sher-container { background-color: rgba(15, 76, 58, 0.06); border: 1px solid rgba(15, 76, 58, 0.2); border-left: 5px solid #0F4C3A; padding: 18px; border-radius: 8px; text-align: center; margin-bottom: 25px; }
+.urdu-text { font-size: 1.5rem; color: #0F4C3A; line-height: 1.8; direction: rtl; }
+.sidebar-header { font-size: 1.1rem; color: #0F4C3A; font-weight: bold; border-bottom: 2px solid #0F4C3A; padding-bottom: 5px; margin-bottom: 10px; }
+.arabic-ur-ibarath {
     direction: rtl !important;
     text-align: right !important;
     unicode-bidi: bidi-override !important;
@@ -46,8 +43,8 @@ html, body, [data-testid="stAppViewContainer"], .stApp {{
     border-right: 6px solid #0F4C3A;
     margin-top: 15px;
     margin-bottom: 15px;
-}}
-.bengali-translation {{ font-size: 1.1rem; line-height: 1.7; color: #2D3748; margin-bottom: 15px; }}
+}
+.bengali-translation { font-size: 1.1rem; line-height: 1.7; color: #2D3748; margin-bottom: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -105,11 +102,10 @@ with st.sidebar:
     uploaded_files = st.file_uploader("এখানে PDF ফাইল ড্রপ করুন", type=["pdf"], accept_multiple_files=True)
 
     if uploaded_files:
-        with st.spinner("কিতাব থেকে তথ্য এক্সট্রাক্ট করা হচ্ছে..."):
+        with st.spinner("কিতাব থেকে তথ্য প্রসেস করা হচ্ছে..."):
             for uploaded_file in uploaded_files:
                 if uploaded_file.name not in st.session_state["uploaded_file_names"]:
                     try:
-                        # ইন-মেমোরি পিডিএফ রিডিং লজিক (যা সুপার ফাস্ট ও লুপফ্রি)
                         reader = PdfReader(uploaded_file)
                         text_content = f"\n\n========== কিতাবের নাম: {uploaded_file.name} ==========\n\n"
                         for page in reader.pages:
@@ -153,7 +149,6 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
                         role_name = "ইউজার" if msg["role"] == "user" else "সহকারী"
                         chat_history += f"{role_name}: {msg['content']}\n"
 
-                    # অত্যন্ত স্ট্রং প্রম্পটিং লজিক
                     system_instruction = f"""
                     তুমি একজন অত্যন্ত প্রজ্ঞাবান, নির্ভরযোগ্য এবং গভীর জ্ঞানসম্পন্ন ইসলামিক স্কলার।
                     তোমার মূল কাজ হলো নিচে দেওয়া কিতাবের কন্টেন্ট থেকে ব্যবহারকারীর প্রশ্নের নিখুঁত উত্তর প্রদান করা।
@@ -164,14 +159,13 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
                     তোমার কাজ ও কঠোর নির্দেশনা:
                     ১. নিচে 'কিতাবের মূল কন্টেন্ট' সেকশনে যুক্ত করা ডেটা গভীরভাবে বিশ্লেষণ করে শুধু তার ভেতরের সঠিক তথ্যের ওপর ভিত্তি করে উত্তর দেবে। মনগড়া বা বাইরের কোনো তথ্য যোগ করবে না।
                     ২. যদি এই প্রশ্নের সুনির্দিষ্ট উত্তর কিতাবের ভেতর না থাকে, তবে অমূলক উত্তর না দিয়ে স্পষ্ট বলবে: "এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।"
-                    ৩. কোনো আরবি বা উর্দু ইবারত, কোরআনের আয়াত বা হাদিস সরাসরি দেওয়ার সময় বাধ্যতামূলকভাবে এই HTML ফরম্যাটে সাজাবে (আরবি বা উর্দু লেখার ভেতরে কোনো বাংলা শব্দ বা ব্র্যাকেট মিক্স করবে না):
+                    ৩. কোনো আরবি বা উর্দু ইবারত, কোরআনের আয়াত বা হাদিস সরাসরি দেওয়ার সময় বাধ্যতামূলকভাবে এই HTML ফরম্যাটে সাজাবে:
                     <div class='arabic-ur-ibarath'>এখানে শুধু আরবি বা উর্দু টেক্সট লিখবে</div>
-                    ৪. ইবারতের ঠিক নিচে তার বাংলা অনুবাদ এই ফরম্যাটে দেবে:
+                    ４. ইবারতের ঠিক নিচে তার বাংলা অনুবাদ এই ফরম্যাটে দেবে:
                     <div class='bengali-translation'>বাংলা অনুবাদ এখানে লিখবে।</div>
                     ৫. উত্তর সম্পূর্ণ সাবলীল ও স্পষ্ট বাংলা ভাষায় সংক্ষেপে প্রকাশ করবে।
                     """
 
-                    # কিতাবের ডেটা সরাসরি টেক্সট আকারে মডেলে ইনজেক্ট করা হচ্ছে (সর্বোচ্চ ৬০ হাজার ক্যারেক্টার সেফটি মার্জিন)
                     user_payload = f"""
                     {system_instruction}
                     
