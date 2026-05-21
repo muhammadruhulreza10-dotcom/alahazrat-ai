@@ -1,7 +1,7 @@
 import streamlit as st
 import google.genai as genai
 from google.genai import types
-from pypdf import PdfReader
+import pdfplumber
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -55,20 +55,19 @@ st.markdown("""
 <div class="urdu-sher-container">
 <div class="urdu-text">
 ملکِ سخن کی شاہی تم کو رضاؔ مسلم <br>
-جس سمت آ گئے ہو سکے بٹھا دیے ہیں
+جس سمت آ گئے ہو سکے بٹھা دیے ہیں
 </div>
 </div>
 """, unsafe_allow_html=True)
 
 # ---------------- GEMINI API KEYS FROM SECRETS ----------------
-# কোড সুরক্ষিত রাখতে এখানে সরাসরি স্ট্রিং না দিয়ে Streamlit Secrets ব্যবহার করা হয়েছে
 try:
     GEMINI_API_KEYS = [
         st.secrets["GEMINI_KEY_1"],
         st.secrets["GEMINI_KEY_2"]
     ]
 except Exception as config_err:
-    st.error("❌ Streamlit Secrets-এ API Key খুঁজে পাওয়া যায়নি! দয়া করে ড্যাশবোর্ডে GEMINI_KEY_1 এবং GEMINI_KEY_2 সেট করুন।")
+    st.error("❌ Streamlit Secrets-এ API Key খুঁজে পাওয়া যায়নি! ড্যাশবোর্ডে GEMINI_KEY_1 এবং GEMINI_KEY_2 সেট করুন।")
     st.stop()
 
 # ---------------- SESSION STATES ----------------
@@ -90,7 +89,6 @@ if idx >= len(GEMINI_API_KEYS):
     idx = 0
     st.session_state["current_key_index"] = 0
 
-# সিক্রেট থেকে রিড করা কী দিয়ে ক্লায়েন্ট ইনিশিয়ালাইজেশন
 client = genai.Client(api_key=GEMINI_API_KEYS[idx])
 
 # ---------------- SIDEBAR ----------------
@@ -105,34 +103,33 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown('<div class="sidebar-header">📤 কিতাব Upload করুন (PDF)</div>', unsafe_allow_html=True)
-    uploaded_files = st.file_uploader(
-        "এখানে PDF ফাইল ড্রপ করুন",
-        type=["pdf"],
-        accept_multiple_files=True
-    )
+    uploaded_files = st.file_uploader("এখানে PDF ফাইল ড্রপ করুন", type=["pdf"], accept_multiple_files=True)
 
     if uploaded_files:
         new_content_added = False
-        with st.spinner("কিতাব থেকে তথ্য প্রসেস করা হচ্ছে..."):
+        with st.spinner("কিতাবের পৃষ্ঠা ও ইনডেক্সিং অপ্টিমাইজ করা হচ্ছে..."):
             for uploaded_file in uploaded_files:
                 if uploaded_file.name not in st.session_state["uploaded_file_names"]:
                     try:
-                        reader = PdfReader(uploaded_file)
-                        text_content = f"\n\n========== কিতাবের নাম: {uploaded_file.name} ==========\n\n"
-                        pages_to_read = reader.pages[:30]
-                        for page in pages_to_read:
-                            text = page.extract_text()
-                            if text:
-                                cleaned_page_text = " ".join(text.split())
-                                text_content += cleaned_page_text + "\n"
+                        with pdfplumber.open(uploaded_file) as pdf:
+                            text_content = f"\n\n[কিতাব শুরু: {uploaded_file.name}]\n\n"
+                            # প্রথম ৩০ পৃষ্ঠা সার্চ ফ্রেন্ডলি ফরম্যাটে রিড করা
+                            pages_to_read = pdf.pages[:30]
+                            for i, page in enumerate(pages_to_read):
+                                text = page.extract_text()
+                                if text:
+                                    # প্রতি পৃষ্ঠার টেক্সটকে আলাদা ও চিহ্নিত রাখা হচ্ছে
+                                    text_content += f"\n--- [পৃষ্ঠা নম্বর: {i+1}] ---\n"
+                                    text_content += text + "\n"
+                        
                         st.session_state["extracted_books_content"] += text_content
                         st.session_state["uploaded_file_names"].append(uploaded_file.name)
                         new_content_added = True
                     except Exception as parse_error:
-                        st.error(f"ফাইল পড়তে সমস্যা হয়েছে: {str(parse_error)}")
+                        st.error(f"ফাইল পড়তে সমস্যা হয়েছে: {str(parse_error)}")
 
             if new_content_added:
-                st.success("✅ কিতাব সফলভাবে যুক্ত করা হয়েছে!")
+                st.success("✅ কিতাব সফলভাবে ইনডেক্স করা হয়েছে!")
                 st.rerun()
 
     st.markdown("---")
@@ -157,7 +154,7 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
         if not st.session_state["extracted_books_content"].strip():
             st.warning("অনুগ্রহ করে প্রথমে বামপাশের সাইডবার থেকে কিতাব (PDF) আপলোড করুন।")
         else:
-            with st.spinner("কিতাব সার্চ করা হচ্ছে..."):
+            with st.spinner("কিতাবের নির্দিষ্ট পৃষ্ঠা স্ক্যান করা হচ্ছে..."):
                 try:
                     chat_history = ""
                     for msg in st.session_state["messages"][-4:-1]:
@@ -165,22 +162,23 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
                         chat_history += f"{role_name}: {msg['content']}\n"
 
                     system_instruction = (
-                        "তুমি একজন অত্যন্ত প্রজ্ঞাবান, নির্ভরযোগ্য এবং গভীর জ্ঞানসম্পন্ন ইসলামিক স্কলার।\n"
-                        "তোমার মূল কাজ হলো নিচে দেওয়া কিতাবের কন্টেন্ট থেকে ব্যবহারকারীর প্রশ্নের নিখুঁত উত্তর প্রদান করা।\n\n"
+                        "তুমি একজন অত্যন্ত দ্রুত এবং প্রজ্ঞাবান ইসলামিক স্কলার এআই।\n"
+                        "তোমার প্রধান কাজ হলো নিচে দেওয়া 'কিতাবের মূল কন্টেন্ট'-এর ভেতরের পৃষ্ঠা নম্বরগুলো দ্রুত স্ক্যান করে ব্যবহারকারীর সুনির্দিষ্ট উত্তরটি বের করা।\n\n"
                         f"[পূর্ববর্তী চ্যাট ইতিহাস]\n{chat_history}\n\n"
-                        "তোমার কাজ ও কঠোর নির্দেশনা:\n"
-                        "১. নিচে 'কিতাবের মূল কন্টেন্ট' সেকশনে যুক্ত করা ডেটা গভীরভাবে বিশ্লেষণ করে শুধু তার ভেতরের সঠিক তথ্যের ওপর ভিত্তি করে উত্তর দিবে। মনগড়া বা বাইরের তথ্য দিবে না।\n"
-                        "২. যদি এই প্রশ্নের সুনির্দিষ্ট উত্তর কিতাবের ভেতর না থাকে, তবে স্পষ্ট বলবে: 'এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।'\n"
-                        "৩. কোনো আরবি বা উর্দু ইবারত দেওয়ার সময় এই HTML ফরম্যাটে সাজাবে:\n"
+                        "কঠোর নিয়মাবলী:\n"
+                        "১. নিচে সরবরাহ করা কিতাবের নির্দিষ্ট পৃষ্ঠার ডেটা বিশ্লেষণ করে শুধু সঠিক ও প্রাসঙ্গিক উত্তরটি সংক্ষেপে প্রদান করবে। অলীক বা বাইরের কোনো তথ্য বানিয়ে লিখবে না।\n"
+                        "২. যদি প্রশ্নের সুনির্দিষ্ট উত্তর কিতাবের পৃষ্ঠাগুলোতে না থাকে, তবে অযথা সময় নষ্ট না করে সরাসরি বলবে: 'এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।'\n"
+                        "৩. কোনো আরবি বা উর্দু ইবারত দেওয়ার সময় বাধ্যতামূলকভাবে এই HTML ফরম্যাটে সাজাবে:\n"
                         "<div class='arabic-ur-ibarath'>আরবি/উর্দু টেক্সট</div>\n"
                         "৪. ইবারতের নিচে বাংলা অনুবাদ এই ফরম্যাটে দেবে:\n"
                         "<div class='bengali-translation'>বাংলা অনুবাদ</div>\n"
-                        "৫. উত্তর সম্পূর্ণ সাবলীল ও স্পষ্ট বাংলা ভাষায় দেবে।"
+                        "৫. উত্তর সম্পূর্ণ সাবলীল ও স্পষ্ট বাংলা ভাষায় দেবে।"
                     )
 
+                    # এআই যেন দ্রুত খুঁজতে পারে তাই ২৫,০০০ ক্যারেক্টার ইনডেক্সড ডেটা পাঠানো হচ্ছে
                     user_payload = (
-                        "[কিতাবের মূল কন্টেন্ট]:\n"
-                        f"{st.session_state['extracted_books_content'][:15000]}\n\n"
+                        "[কিতাবের মূল কন্টেন্ট (পৃষ্ঠা নম্বরসহ)]:\n"
+                        f"{st.session_state['extracted_books_content'][:25000]}\n\n"
                         f"ব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}"
                     )
 
@@ -195,19 +193,20 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
                         config=config
                     )
 
-                    output_text = response.text if response.text else "দুঃখিত, কোনো উত্তর জেনারেট করা সম্ভব হয়নি।"
+                    output_text = response.text if response.text else "দুঃখিত, কোনো উত্তর জেনারেট করা সম্ভব হয়নি।"
 
                     st.markdown(output_text, unsafe_allow_html=True)
                     st.session_state["messages"].append({"role": "assistant", "content": output_text})
 
                 except Exception as e:
                     error_msg = str(e)
-                    if any(x in error_msg for x in ["429", "RESOURCE_EXHAUSTED", "403", "PERMISSION_DENIED", "quota"]):
+                    if any(x in error_msg.lower() for x in ["429", "resource_exhausted", "403", "permission_denied", "quota", "503", "unavailable"]):
                         next_index = st.session_state["current_key_index"] + 1
                         if next_index < len(GEMINI_API_KEYS):
                             st.session_state["current_key_index"] = next_index
-                            st.warning("⚠️ API কোটা শেষ বা সমস্যা হয়েছে। ব্যাকআপ সার্ভারে সুইচ হয়েছে। অনুগ্রহ করে আর একবার প্রশ্নটি সাবমিট করুন।")
+                            st.warning("⚠️ সার্ভারে লোড বেশি থাকায় ব্যাকআপ এআই সার্ভারে সুইচ করা হয়েছে। অনুগ্রহ করে আর একবার প্রশ্নটি সাবমিট করুন।")
                         else:
-                            st.error("❌ সকল API Key-এর কোটা শেষ। কিছুক্ষণ পর চেষ্টা করুন।")
+                            st.session_state["current_key_index"] = 0
+                            st.error("❌ সকল API Key-এর লিমিট এই মুহূর্তের জন্য শেষ। দয়া করে ৫ মিনিট পর চেষ্টা করুন।")
                     else:
-                        st.error(f"❌ সমস্যা হয়েছে: {error_msg}")
+                        st.error(f"❌ সমস্যা হয়েছে: {error_msg}")
