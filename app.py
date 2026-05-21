@@ -1,5 +1,6 @@
 import streamlit as st
-import google.generativeai as genai
+import google.genai as genai
+from google.genai import types
 from pypdf import PdfReader
 
 # ---------------- PAGE CONFIG ----------------
@@ -9,7 +10,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# ---------------- CSS ----------------
+# ---------------- CSS FOR ARABIC, URDU & INTERFACE ----------------
 st.markdown("""
 <style>
 html, body, [data-testid="stAppViewContainer"], .stApp {
@@ -59,11 +60,16 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------- GEMINI API KEYS ----------------
-GEMINI_API_KEYS = [
-    "AIzaSyC6vsaAkvRiXBOLiic50Cu9CtURyutJmGQ",
-    "AIzaSyCrki8Y2_WcdM5009kxj_iRlhp1JQ4cStA"
-]
+# ---------------- GEMINI API KEYS FROM SECRETS ----------------
+# কোড সুরক্ষিত রাখতে এখানে সরাসরি স্ট্রিং না দিয়ে Streamlit Secrets ব্যবহার করা হয়েছে
+try:
+    GEMINI_API_KEYS = [
+        st.secrets["GEMINI_KEY_1"],
+        st.secrets["GEMINI_KEY_2"]
+    ]
+except Exception as config_err:
+    st.error("❌ Streamlit Secrets-এ API Key খুঁজে পাওয়া যায়নি! দয়া করে ড্যাশবোর্ডে GEMINI_KEY_1 এবং GEMINI_KEY_2 সেট করুন।")
+    st.stop()
 
 # ---------------- SESSION STATES ----------------
 if "current_key_index" not in st.session_state:
@@ -79,16 +85,13 @@ if "extracted_books_content" not in st.session_state:
     st.session_state["extracted_books_content"] = ""
 
 # ---------------- GEMINI CLIENT SETUP ----------------
-def get_gemini_model():
-    idx = st.session_state["current_key_index"]
-    if idx >= len(GEMINI_API_KEYS):
-        idx = 0
-        st.session_state["current_key_index"] = 0
-    genai.configure(api_key=GEMINI_API_KEYS[idx])
-    return genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
-        generation_config=genai.GenerationConfig(temperature=0.0)
-    )
+idx = st.session_state["current_key_index"]
+if idx >= len(GEMINI_API_KEYS):
+    idx = 0
+    st.session_state["current_key_index"] = 0
+
+# সিক্রেট থেকে রিড করা কী দিয়ে ক্লায়েন্ট ইনিশিয়ালাইজেশন
+client = genai.Client(api_key=GEMINI_API_KEYS[idx])
 
 # ---------------- SIDEBAR ----------------
 with st.sidebar:
@@ -166,7 +169,7 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
                         "তোমার মূল কাজ হলো নিচে দেওয়া কিতাবের কন্টেন্ট থেকে ব্যবহারকারীর প্রশ্নের নিখুঁত উত্তর প্রদান করা।\n\n"
                         f"[পূর্ববর্তী চ্যাট ইতিহাস]\n{chat_history}\n\n"
                         "তোমার কাজ ও কঠোর নির্দেশনা:\n"
-                        "১. নিচে 'কিতাবের মূল কন্টেন্ট' সেকশনে যুক্ত করা ডেটা গভীরভাবে বিশ্লেষণ করে শুধু তার ভেতরের সঠিক তথ্যের ওপর ভিত্তি করে উত্তর দিবে।\n"
+                        "১. নিচে 'কিতাবের মূল কন্টেন্ট' সেকশনে যুক্ত করা ডেটা গভীরভাবে বিশ্লেষণ করে শুধু তার ভেতরের সঠিক তথ্যের ওপর ভিত্তি করে উত্তর দিবে। মনগড়া বা বাইরের তথ্য দিবে না।\n"
                         "২. যদি এই প্রশ্নের সুনির্দিষ্ট উত্তর কিতাবের ভেতর না থাকে, তবে স্পষ্ট বলবে: 'এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।'\n"
                         "৩. কোনো আরবি বা উর্দু ইবারত দেওয়ার সময় এই HTML ফরম্যাটে সাজাবে:\n"
                         "<div class='arabic-ur-ibarath'>আরবি/উর্দু টেক্সট</div>\n"
@@ -175,15 +178,22 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
                         "৫. উত্তর সম্পূর্ণ সাবলীল ও স্পষ্ট বাংলা ভাষায় দেবে।"
                     )
 
-                    full_prompt = (
-                        f"{system_instruction}\n\n"
+                    user_payload = (
                         "[কিতাবের মূল কন্টেন্ট]:\n"
-                        f"{st.session_state['extracted_books_content'][:50000]}\n\n"
+                        f"{st.session_state['extracted_books_content'][:15000]}\n\n"
                         f"ব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}"
                     )
 
-                    model = get_gemini_model()
-                    response = model.generate_content(full_prompt)
+                    config = types.GenerateContentConfig(
+                        temperature=0.0,
+                        system_instruction=system_instruction
+                    )
+
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=user_payload,
+                        config=config
+                    )
 
                     output_text = response.text if response.text else "দুঃখিত, কোনো উত্তর জেনারেট করা সম্ভব হয়নি।"
 
@@ -196,7 +206,7 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
                         next_index = st.session_state["current_key_index"] + 1
                         if next_index < len(GEMINI_API_KEYS):
                             st.session_state["current_key_index"] = next_index
-                            st.warning("⚠️ API কোটা শেষ। ব্যাকআপ সার্ভারে সুইচ হয়েছে। আবার প্রশ্ন করুন।")
+                            st.warning("⚠️ API কোটা শেষ বা সমস্যা হয়েছে। ব্যাকআপ সার্ভারে সুইচ হয়েছে। অনুগ্রহ করে আর একবার প্রশ্নটি সাবমিট করুন।")
                         else:
                             st.error("❌ সকল API Key-এর কোটা শেষ। কিছুক্ষণ পর চেষ্টা করুন।")
                     else:
