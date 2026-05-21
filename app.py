@@ -2,7 +2,6 @@ import streamlit as st
 import google.genai as genai
 from google.genai import types
 from pypdf import PdfReader
-import os
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -11,7 +10,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# ---------------- CSS ----------------
+# ---------------- CSS FOR ARABIC, URDU & INTERFACE ----------------
 st.markdown("""
 <style>
 html, body, [data-testid="stAppViewContainer"], .stApp {
@@ -24,48 +23,11 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     background-repeat: no-repeat !important;
     background-attachment: fixed !important;
 }
-
-.main-title {
-    font-size: 2rem;
-    color: #0F4C3A;
-    text-align: center;
-    font-weight: bold;
-    margin-bottom: 5px;
-}
-
-.sub-title {
-    font-size: 1.05rem;
-    color: #2D3748;
-    text-align: center;
-    margin-bottom: 15px;
-}
-
-.urdu-sher-container {
-    background-color: rgba(15, 76, 58, 0.06);
-    border: 1px solid rgba(15, 76, 58, 0.2);
-    border-left: 5px solid #0F4C3A;
-    padding: 18px;
-    border-radius: 8px;
-    text-align: center;
-    margin-bottom: 25px;
-}
-
-.urdu-text {
-    font-size: 1.5rem;
-    color: #0F4C3A;
-    line-height: 1.8;
-    direction: rtl;
-}
-
-.sidebar-header {
-    font-size: 1.1rem;
-    color: #0F4C3A;
-    font-weight: bold;
-    border-bottom: 2px solid #0F4C3A;
-    padding-bottom: 5px;
-    margin-bottom: 10px;
-}
-
+.main-title { font-size: 2rem; color: #0F4C3A; text-align: center; font-weight: bold; margin-bottom: 5px; }
+.sub-title { font-size: 1.05rem; color: #2D3748; text-align: center; margin-bottom: 15px; }
+.urdu-sher-container { background-color: rgba(15, 76, 58, 0.06); border: 1px solid rgba(15, 76, 58, 0.2); border-left: 5px solid #0F4C3A; padding: 18px; border-radius: 8px; text-align: center; margin-bottom: 25px; }
+.urdu-text { font-size: 1.5rem; color: #0F4C3A; line-height: 1.8; direction: rtl; }
+.sidebar-header { font-size: 1.1rem; color: #0F4C3A; font-weight: bold; border-bottom: 2px solid #0F4C3A; padding-bottom: 5px; margin-bottom: 10px; }
 .arabic-ur-ibarath {
     direction: rtl !important;
     text-align: right !important;
@@ -81,28 +43,14 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     margin-top: 15px;
     margin-bottom: 15px;
 }
-
-.bengali-translation {
-    font-size: 1.1rem;
-    line-height: 1.7;
-    color: #2D3748;
-    margin-bottom: 15px;
-}
+.bengali-translation { font-size: 1.1rem; line-height: 1.7; color: #2D3748; margin-bottom: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- TITLE ----------------
-st.markdown(
-    '<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>',
-    unsafe_allow_html=True
-)
+# ---------------- TITLE & SHER ----------------
+st.markdown('<div class="main-title">📚 ইমাম আহমদ رضا খাঁন আলা হযরত এআই কিতাবখানা</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Gemini API দ্বারা চালিত কাস্টম কিতাব সার্চ ইঞ্জিন</div>', unsafe_allow_html=True)
 
-st.markdown(
-    '<div class="sub-title">Gemini API দ্বারা চালিত কাস্টম কিতাব সার্চ ইঞ্জিন</div>',
-    unsafe_allow_html=True
-)
-
-# ---------------- SHER ----------------
 st.markdown("""
 <div class="urdu-sher-container">
 <div class="urdu-text">
@@ -112,315 +60,162 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------- API KEYS ----------------
-# নিজের API Key দিন
+# ---------------- GEMINI API KEY CONFIG ----------------
+# সিকিউরিটির জন্য আপনার আসল সচল Gemini API Key-টি নিচের উদাহরণের জায়গায় বসিয়ে দিন
 GEMINI_API_KEYS = [
-    "YOUR_API_KEY_1",
-    "YOUR_API_KEY_2"
+    "এখানে_আপনার_প্রথম_আসল_Gemini_Key_বসাবেন",
+    "এখানে_আপনার_দ্বিতীয়_ব্যাকআপ_Key_বসাবেন"
 ]
 
-# ---------------- SESSION ----------------
 if "current_key_index" not in st.session_state:
     st.session_state["current_key_index"] = 0
 
+current_index = st.session_state["current_key_index"]
+if current_index >= len(GEMINI_API_KEYS):
+    current_index = 0
+    st.session_state["current_key_index"] = 0
+
+# ক্লায়েন্ট ইনিশিয়ালাইজেশন
+client = genai.Client(api_key=GEMINI_API_KEYS[current_index])
+
+# ---------------- SESSION STATES ----------------
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
 if "uploaded_file_names" not in st.session_state:
     st.session_state["uploaded_file_names"] = []
 
-if "book_chunks" not in st.session_state:
-    st.session_state["book_chunks"] = []
-
-# ---------------- API CLIENT ----------------
-current_index = st.session_state["current_key_index"]
-
-if current_index >= len(GEMINI_API_KEYS):
-    current_index = 0
-    st.session_state["current_key_index"] = 0
-
-client = genai.Client(
-    api_key=GEMINI_API_KEYS[current_index]
-)
-
-# ---------------- PDF TEXT CLEANER ----------------
-def clean_text(text):
-    if not text:
-        return ""
-
-    text = text.replace("\n", " ")
-    text = text.replace("\t", " ")
-
-    while "  " in text:
-        text = text.replace("  ", " ")
-
-    return text.strip()
-
-# ---------------- TEXT CHUNKER ----------------
-def chunk_text(text, chunk_size=4000):
-    chunks = []
-
-    for i in range(0, len(text), chunk_size):
-        chunks.append(text[i:i + chunk_size])
-
-    return chunks
+if "extracted_books_content" not in st.session_state:
+    st.session_state["extracted_books_content"] = ""
 
 # ---------------- SIDEBAR ----------------
 with st.sidebar:
-
-    st.markdown(
-        '<div class="sidebar-header">📖 বর্তমান কিতাবসমূহ</div>',
-        unsafe_allow_html=True
-    )
-
+    st.markdown('<div class="sidebar-header">📖 বর্তমান কিতাবসমূহ</div>', unsafe_allow_html=True)
     if st.session_state["uploaded_file_names"]:
-        st.success(
-            f"{len(st.session_state['uploaded_file_names'])} টি কিতাব যুক্ত আছে"
-        )
-
+        st.success(f"{len(st.session_state['uploaded_file_names'])} টি কিতাব যুক্ত আছে")
         for book_name in st.session_state["uploaded_file_names"]:
-            st.markdown(f"🔹 {book_name}")
-
+            st.markdown(f"🔹 **{book_name}**")
     else:
-        st.warning("এখনো কোনো PDF আপলোড হয়নি")
+        st.error("⚠️ এখনো কোনো কিতাব (PDF) আপলোড করা হয়নি")
 
     st.markdown("---")
+    st.markdown('<div class="sidebar-header">📤 কিতাব Upload করুন (PDF)</div>', unsafe_allow_html=True)
+    uploaded_files = st.file_uploader("এখানে PDF ফাইল ড্রপ করুন", type=["pdf"], accept_multiple_files=True)
 
-    st.markdown(
-        '<div class="sidebar-header">📤 PDF Upload করুন</div>',
-        unsafe_allow_html=True
-    )
-
-    uploaded_files = st.file_uploader(
-        "এখানে PDF দিন",
-        type=["pdf"],
-        accept_multiple_files=True
-    )
-
-    # ---------------- PROCESS PDF ----------------
     if uploaded_files:
-
-        with st.spinner("কিতাব প্রসেস করা হচ্ছে..."):
-
+        new_content_added = False
+        with st.spinner("কিতাব থেকে তথ্য প্রসেস করা হচ্ছে..."):
             for uploaded_file in uploaded_files:
-
                 if uploaded_file.name not in st.session_state["uploaded_file_names"]:
-
                     try:
                         reader = PdfReader(uploaded_file)
-
-                        full_text = ""
-
-                        # শুধু প্রথম ৩০ পৃষ্ঠা
-                        pages = reader.pages[:30]
-
-                        for page in pages:
-
+                        text_content = f"\n\n========== কিতাবের নাম: {uploaded_file.name} ==========\n\n"
+                        
+                        # কন্টেন্ট রিডিং পারফরম্যান্স ঠিক রাখতে প্রথম ৩০ পৃষ্ঠা রিড করার লজিক
+                        pages_to_read = reader.pages[:30]
+                        for page in pages_to_read:
                             text = page.extract_text()
-
                             if text:
-                                full_text += clean_text(text) + "\n"
-
-                        chunks = chunk_text(full_text)
-
-                        st.session_state["book_chunks"].extend(chunks)
-
-                        st.session_state["uploaded_file_names"].append(
-                            uploaded_file.name
-                        )
-
-                    except Exception as e:
-                        st.error(f"PDF Error: {str(e)}")
-
-            st.success("✅ কিতাব সফলভাবে যুক্ত হয়েছে")
-            st.rerun()
+                                # অতিরিক্ত স্পেস ও নিউলাইন ক্লিনআপ
+                                cleaned_page_text = " ".join(text.split())
+                                text_content += cleaned_page_text + "\n"
+                        
+                        st.session_state["extracted_books_content"] += text_content
+                        st.session_state["uploaded_file_names"].append(uploaded_file.name)
+                        new_content_added = True
+                    except Exception as parse_error:
+                        st.error(f"ফাইল পড়তে সমস্যা হয়েছে: {str(parse_error)}")
+            
+            if new_content_added:
+                st.success("✅ কিতাব সফলভাবে যুক্ত করা হয়েছে!")
+                st.rerun()
 
     st.markdown("---")
-
-    # ---------------- CLEAR CHAT ----------------
-    if st.button("🗑️ নতুন চ্যাট", use_container_width=True):
-
+    if st.button("🗑️ নতুন চ্যাট শুরু করুন", use_container_width=True):
         st.session_state["messages"] = []
         st.session_state["uploaded_file_names"] = []
-        st.session_state["book_chunks"] = []
-
+        st.session_state["extracted_books_content"] = ""
         st.rerun()
 
-# ---------------- SHOW OLD CHAT ----------------
+# ---------------- DISPLAY OLD CHAT ----------------
 for message in st.session_state["messages"]:
-
     with st.chat_message(message["role"]):
-        st.write(message["content"], unsafe_allow_html=True)
+        st.markdown(message["content"], unsafe_allow_html=True)
 
-# ---------------- CHAT ----------------
-prompt = st.chat_input(
-    "কিতাব সম্পর্কে প্রশ্ন করুন..."
-)
-
-if prompt:
-
-    st.session_state["messages"].append({
-        "role": "user",
-        "content": prompt
-    })
-
+# ---------------- CHAT INPUT & EXECUTION ----------------
+if prompt := st.chat_input("কিতাব সম্পর্কে যেকোনো প্রশ্ন বা মাসআলাহ জিজ্ঞেস করুন..."):
+    # ইউজারের প্রম্পট যোগ করা
+    st.session_state["messages"].append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.write(prompt)
+        st.markdown(prompt)
 
     with st.chat_message("assistant"):
-
-        with st.spinner("কিতাব সার্চ করা হচ্ছে..."):
-
-            try:
-
-                if not st.session_state["book_chunks"]:
-
-                    st.warning(
-                        "অনুগ্রহ করে প্রথমে PDF আপলোড করুন"
-                    )
-
-                else:
-
-                    # ---------------- SEARCH RELEVANT CHUNKS ----------------
-                    relevant_text = ""
-
-                    keyword_matches = []
-
-                    for chunk in st.session_state["book_chunks"]:
-
-                        if any(word in chunk for word in prompt.split()):
-                            keyword_matches.append(chunk)
-
-                    # যদি কিছু না মিলে
-                    if not keyword_matches:
-                        keyword_matches = st.session_state["book_chunks"][:3]
-
-                    # Limit
-                    relevant_text = "\n\n".join(keyword_matches[:3])
-
-                    # ---------------- CHAT HISTORY ----------------
+        if not st.session_state["extracted_books_content"].strip():
+            st.warning("অনুগ্রহ করে প্রথমে বামপাশের সাইডবার থেকে কিতাব (PDF) আপলোড করুন।")
+        else:
+            with st.spinner("কিতাব সার্চ করা হচ্ছে..."):
+                try:
+                    # চ্যাট হিস্ট্রি প্রিপারেশন
                     chat_history = ""
-
                     for msg in st.session_state["messages"][-4:-1]:
-
-                        role_name = (
-                            "ইউজার"
-                            if msg["role"] == "user"
-                            else "সহকারী"
-                        )
-
+                        role_name = "ইউজার" if msg["role"] == "user" else "সহকারী"
                         chat_history += f"{role_name}: {msg['content']}\n"
 
-                    # ---------------- SYSTEM PROMPT ----------------
+                    # অত্যন্ত স্ট্রং সিস্টেম ইন্সট্রাকশন প্রম্পট ডিজাইন
                     system_instruction = f"""
-তুমি একজন অত্যন্ত প্রজ্ঞাবান ইসলামিক স্কলার।
+                    তুমি একজন অত্যন্ত প্রজ্ঞাবান, নির্ভরযোগ্য এবং গভীর জ্ঞানসম্পন্ন ইসলামিক স্কলার।
+                    তোমার মূল কাজ হলো নিচে দেওয়া কিতাবের কন্টেন্ট থেকে ব্যবহারকারীর প্রশ্নের নিখুঁত উত্তর প্রদান করা।
+                    
+                    [পূর্ববর্তী চ্যাট ইতিহাস]
+                    {chat_history}
+                    
+                    তোমার কাজ ও কঠোর নির্দেশনা:
+                    ১. নিচে 'কিতাবের মূল কন্টেন্ট' সেকশনে যুক্ত করা ডেটা গভীরভাবে বিশ্লেষণ করে শুধু তার ভেতরের সঠিক তথ্যের ওপর ভিত্তি করে উত্তর দিবে। মনগড়া বা বাইরের কোনো তথ্য যোগ করবে না।
+                    ২. যদি এই প্রশ্নের সুনির্দিষ্ট উত্তর কিতাবের ভেতর না থাকে, তবে অমূলক উত্তর না দিয়ে স্পষ্ট বলবে: "এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।"
+                    ৩. কোনো আরবি বা উর্দু ইবারত, কোরআনের আয়াত বা হাদিস সরাসরি দেওয়ার সময় বাধ্যতামূলকভাবে এই HTML ফরম্যাটে সাজাবে:
+                    <div class='arabic-ur-ibarath'>এখানে শুধু আরবি বা উর্দু টেক্সট লিখবে</div>
+                    ৪. ইবারতের ঠিক নিচে তার বাংলা অনুবাদ এই ফরম্যাটে দেবে:
+                    <div class='bengali-translation'>বাংলা অনুবাদ এখানে লিখবে।</div>
+                    ৫. উত্তর সম্পূর্ণ সাবলীল ও স্পষ্ট বাংলা ভাষায় সংক্ষেপে প্রকাশ করবে।
+                    """
 
-কঠোর নির্দেশনা:
-
-১। শুধুমাত্র নিচে দেওয়া কিতাবের তথ্য থেকে উত্তর দিবে।
-
-২। মনগড়া উত্তর দিবে না।
-
-৩। উত্তর না পেলে বলবে:
-"এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।"
-
-৪। আরবি/উর্দু ইবারত এই HTML এ দিবে:
-
-<div class='arabic-ur-ibarath'>
-আরবি টেক্সট
-</div>
-
-৫। বাংলা অনুবাদ এই HTML এ দিবে:
-
-<div class='bengali-translation'>
-বাংলা অনুবাদ
-</div>
-
-৬। সংক্ষিপ্ত, স্পষ্ট ও সুন্দর বাংলা ব্যবহার করবে।
-
-চ্যাট ইতিহাস:
-{chat_history}
-"""
-
-                    # ---------------- FINAL PAYLOAD ----------------
+                    # মডেলে পাঠানোর মূল পে-লোড (কনটেক্সট লিমিট টোকেন অপটিমাইজড)
                     user_payload = f"""
-{system_instruction}
-
-[কিতাবের তথ্য]
-
-{relevant_text}
-
-[প্রশ্ন]
-
-{prompt}
-"""
-
-                    # ---------------- CONFIG ----------------
+                    [কিতাবের মূল কন্টেন্ট]:
+                    {st.session_state["extracted_books_content"][:50000]}
+                    
+                    ব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}
+                    """
+                    
+                    # জেমিনি জেনারেশন কনফিগারেশন (সিস্টেম ইন্সট্রাকশনসহ)
                     config = types.GenerateContentConfig(
-                        temperature=0.1,
-                        max_output_tokens=2048
+                        temperature=0.0,
+                        system_instruction=system_instruction
                     )
-
-                    # ---------------- API CALL ----------------
+                    
+                    # এআই রেসপন্স জেনারেট করা
                     response = client.models.generate_content(
                         model="gemini-2.5-flash",
                         contents=user_payload,
                         config=config
                     )
+                    
+                    output_text = response.text if response.text else "দুঃখিত, কোনো উত্তর জেনারেট করা সম্ভব হয়নি।"
+                    
+                    # ইন্টারফেসে দেখানো এবং সেশন স্টেটে সেভ করা
+                    st.markdown(output_text, unsafe_allow_html=True)
+                    st.session_state["messages"].append({"role": "assistant", "content": output_text})
 
-                    # ---------------- SAFE RESPONSE ----------------
-                    output_text = ""
-
-                    if hasattr(response, "text") and response.text:
-                        output_text = response.text
+                except Exception as e:
+                    error_msg = str(e)
+                    # অটোমেটিক কী-সুইচিং মেকানিজম (কোটা বা পারমিশন এরর হ্যান্ডলার)
+                    if any(x in error_msg for x in ["429", "RESOURCE_EXHAUSTED", "403", "PERMISSION_DENIED"]):
+                        next_index = st.session_state["current_key_index"] + 1
+                        if next_index < len(GEMINI_API_KEYS):
+                            st.session_state["current_key_index"] = next_index
+                            st.warning("⚠️ বর্তমান ফ্রি এআই সার্ভারের কোটা শেষ হওয়ায় ব্যাকআপ সার্ভারে সুইচ করা হয়েছে। অনুগ্রহ করে আর একবার আপনার প্রশ্নটি সাবমিট করুন।")
+                        else:
+                            st.session_state["current_key_index"] = 0
+                            st.error("❌ দুঃখিত, যুক্ত করা সবকটি এআই কী-এর লিমিট এই মুহূর্তের জন্য শেষ। দয়া করে কিছুক্ষণ পর চেষ্টা করুন।")
                     else:
-                        output_text = "কোনো উত্তর পাওয়া যায়নি।"
-
-                    # ---------------- SHOW ----------------
-                    st.write(
-                        output_text,
-                        unsafe_allow_html=True
-                    )
-
-                    # ---------------- SAVE CHAT ----------------
-                    st.session_state["messages"].append({
-                        "role": "assistant",
-                        "content": output_text
-                    })
-
-            # ---------------- ERROR HANDLER ----------------
-            except Exception as e:
-
-                error_msg = str(e)
-
-                # API LIMIT
-                if any(x in error_msg for x in [
-                    "429",
-                    "RESOURCE_EXHAUSTED",
-                    "quota",
-                    "Quota"
-                ]):
-
-                    next_index = (
-                        st.session_state["current_key_index"] + 1
-                    )
-
-                    if next_index < len(GEMINI_API_KEYS):
-
-                        st.session_state["current_key_index"] = next_index
-
-                        st.warning(
-                            "বর্তমান API limit শেষ। আবার প্রশ্ন করুন।"
-                        )
-
-                    else:
-
-                        st.session_state["current_key_index"] = 0
-
-                        st.error(
-                            "সব API key limit শেষ। পরে চেষ্টা করুন।"
-                        )
-
-                else:
-
-                    st.error(f"Error: {error_msg}")
+                        st.error(f"দুঃখিত, উত্তর তৈরিতে সাময়িক সমস্যা হয়েছে। এরর: {error_msg}")
