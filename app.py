@@ -61,10 +61,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------- GEMINI API KEY CONFIG ----------------
-# সিকিউরিটির জন্য আপনার আসল সচল Gemini API Key-টি নিচের উদাহরণের জায়গায় বসিয়ে দিন
+# এখানে আপনার আসল কাজ করা API Keys বসিয়ে নিন
 GEMINI_API_KEYS = [
-    "এখানে_আপনার_প্রথম_আসল_Gemini_Key_বসাবেন",
-    "এখানে_আপনার_দ্বিতীয়_ব্যাকআপ_Key_বসাবেন"
+    "AIzaSyC6vsaAkvRiXBOLiic50Cu9CtURyutJmGQ",
+    "AIzaSyCrki8Y2_WcdM5009kxj_iRlhp1JQ4cStA"
 ]
 
 if "current_key_index" not in st.session_state:
@@ -75,7 +75,6 @@ if current_index >= len(GEMINI_API_KEYS):
     current_index = 0
     st.session_state["current_key_index"] = 0
 
-# ক্লায়েন্ট ইনিশিয়ালাইজেশন
 client = genai.Client(api_key=GEMINI_API_KEYS[current_index])
 
 # ---------------- SESSION STATES ----------------
@@ -111,12 +110,10 @@ with st.sidebar:
                         reader = PdfReader(uploaded_file)
                         text_content = f"\n\n========== কিতাবের নাম: {uploaded_file.name} ==========\n\n"
                         
-                        # কন্টেন্ট রিডিং পারফরম্যান্স ঠিক রাখতে প্রথম ৩০ পৃষ্ঠা রিড করার লজিক
                         pages_to_read = reader.pages[:30]
                         for page in pages_to_read:
                             text = page.extract_text()
                             if text:
-                                # অতিরিক্ত স্পেস ও নিউলাইন ক্লিনআপ
                                 cleaned_page_text = " ".join(text.split())
                                 text_content += cleaned_page_text + "\n"
                         
@@ -144,7 +141,6 @@ for message in st.session_state["messages"]:
 
 # ---------------- CHAT INPUT & EXECUTION ----------------
 if prompt := st.chat_input("কিতাব সম্পর্কে যেকোনো প্রশ্ন বা মাসআলাহ জিজ্ঞেস করুন..."):
-    # ইউজারের প্রম্পট যোগ করা
     st.session_state["messages"].append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -155,67 +151,55 @@ if prompt := st.chat_input("কিতাব সম্পর্কে যেক�
         else:
             with st.spinner("কিতাব সার্চ করা হচ্ছে..."):
                 try:
-                    # চ্যাট হিস্ট্রি প্রিপারেশন
                     chat_history = ""
                     for msg in st.session_state["messages"][-4:-1]:
                         role_name = "ইউজার" if msg["role"] == "user" else "সহকারী"
                         chat_history += f"{role_name}: {msg['content']}\n"
 
-                    # অত্যন্ত স্ট্রং সিস্টেম ইন্সট্রাকশন প্রম্পট ডিজাইন
-                    system_instruction = f"""
-                    তুমি একজন অত্যন্ত প্রজ্ঞাবান, নির্ভরযোগ্য এবং গভীর জ্ঞানসম্পন্ন ইসলামিক স্কলার।
-                    তোমার মূল কাজ হলো নিচে দেওয়া কিতাবের কন্টেন্ট থেকে ব্যবহারকারীর প্রশ্নের নিখুঁত উত্তর প্রদান করা।
-                    
-                    [পূর্ববর্তী চ্যাট ইতিহাস]
-                    {chat_history}
-                    
-                    তোমার কাজ ও কঠোর নির্দেশনা:
-                    ১. নিচে 'কিতাবের মূল কন্টেন্ট' সেকশনে যুক্ত করা ডেটা গভীরভাবে বিশ্লেষণ করে শুধু তার ভেতরের সঠিক তথ্যের ওপর ভিত্তি করে উত্তর দিবে। মনগড়া বা বাইরের কোনো তথ্য যোগ করবে না।
-                    ২. যদি এই প্রশ্নের সুনির্দিষ্ট উত্তর কিতাবের ভেতর না থাকে, তবে অমূলক উত্তর না দিয়ে স্পষ্ট বলবে: "এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।"
-                    ৩. কোনো আরবি বা উর্দু ইবারত, কোরআনের আয়াত বা হাদিস সরাসরি দেওয়ার সময় বাধ্যতামূলকভাবে এই HTML ফরম্যাটে সাজাবে:
-                    <div class='arabic-ur-ibarath'>এখানে শুধু আরবি বা উর্দু টেক্সট লিখবে</div>
-                    ৪. ইবারতের ঠিক নিচে তার বাংলা অনুবাদ এই ফরম্যাটে দেবে:
-                    <div class='bengali-translation'>বাংলা অনুবাদ এখানে লিখবে।</div>
-                    ৫. উত্তর সম্পূর্ণ সাবলীল ও স্পষ্ট বাংলা ভাষায় সংক্ষেপে প্রকাশ করবে।
-                    """
+                    # এনকোডিং সমস্যা এড়াতে সিস্টেম ইনস্ট্রাকশনকে ট্রিম এবং ক্লিন স্ট্রাকচার করা হয়েছে
+                    system_instruction = (
+                        "তুমি একজন অত্যন্ত প্রজ্ঞাবান, নির্ভরযোগ্য এবং গভীর জ্ঞানসম্পন্ন ইসলামিক স্কলার।\n"
+                        "তোমার মূল কাজ হলো নিচে দেওয়া কিতাবের কন্টেন্ট থেকে ব্যবহারকারীর প্রশ্নের নিখুঁত উত্তর প্রদান করা।\n\n"
+                        f"[পূর্ববর্তী চ্যাট ইতিহাস]\n{chat_history}\n\n"
+                        "তোমার কাজ ও কঠোর নির্দেশনা:\n"
+                        "১. নিচে 'কিতাবের মূল কন্টেন্ট' সেকশনে যুক্ত করা ডেটা গভীরভাবে বিশ্লেষণ করে শুধু তার ভেতরের সঠিক তথ্যের ওপর ভিত্তি করে উত্তর দিবে। মনগড়া বা বাইরের কোনো তথ্য যোগ করবে না।\n"
+                        "২. যদি এই প্রশ্নের সুনির্দিষ্ট উত্তর কিতাবের ভেতর না থাকে, তবে অমূলক উত্তর না দিয়ে স্পষ্ট বলবে: 'এই বিষয়ে কিতাবে স্পষ্ট তথ্য পাওয়া যায়নি।'\n"
+                        "৩. কোনো আরবি বা উর্দু ইবারত, কোরআনের আয়াত বা হাদিস সরাসরি দেওয়ার সময় বাধ্যতামূলকভাবে এই HTML ফরম্যাটে সাজাবে:\n"
+                        "<div class='arabic-ur-ibarath'>এখানে শুধু আরবি বা উর্দু টেক্সট লিখবে</div>\n"
+                        "৪. ইবারতের ঠিক নিচে তার বাংলা অনুবাদ এই ফরম্যাটে দেবে:\n"
+                        "<div class='bengali-translation'>বাংলা অনুবাদ এখানে লিখবে।</div>\n"
+                        "৫. উত্তর সম্পূর্ণ সাবলীল ও স্পষ্ট বাংলা ভাষায় সংক্ষেপে প্রকাশ করবে।"
+                    )
 
-                    # মডেলে পাঠানোর মূল পে-লোড (কনটেক্সট লিমিট টোকেন অপটিমাইজড)
-                    user_payload = f"""
-                    [কিতাবের মূল কন্টেন্ট]:
-                    {st.session_state["extracted_books_content"][:50000]}
+                    user_payload = (
+                        "[কিতাবের মূল কন্টেন্ট]:\n"
+                        f"{st.session_state['extracted_books_content'][:50000]}\n\n"
+                        f"ব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}"
+                    )
                     
-                    ব্যবহারকারীর বর্তমান প্রশ্ন: {prompt}
-                    """
-                    
-                    # জেমিনি জেনারেশন কনফিগারেশন (সিস্টেম ইন্সট্রাকশনসহ)
                     config = types.GenerateContentConfig(
                         temperature=0.0,
                         system_instruction=system_instruction
                     )
                     
-                    # এআই রেসপন্স জেনারেট করা
                     response = client.models.generate_content(
                         model="gemini-2.5-flash",
                         contents=user_payload,
                         config=config
                     )
                     
-                    output_text = response.text if response.text else "দুঃখিত, কোনো উত্তর জেনারেট করা সম্ভব হয়নি।"
+                    # টেক্সট স্ট্রিং ফরম্যাট এক্সপ্লিসিটলি UTF-8 হ্যান্ডল করার ব্যবস্থা
+                    output_text = str(response.text) if response.text else "দুঃখিত, কোনো উত্তর জেনারেট করা সম্ভব হয়নি।"
                     
-                    # ইন্টারফেসে দেখানো এবং সেশন স্টেটে সেভ করা
                     st.markdown(output_text, unsafe_allow_html=True)
                     st.session_state["messages"].append({"role": "assistant", "content": output_text})
 
                 except Exception as e:
                     error_msg = str(e)
-                    # অটোমেটিক কী-সুইচিং মেকানিজম (কোটা বা পারমিশন এরর হ্যান্ডলার)
                     if any(x in error_msg for x in ["429", "RESOURCE_EXHAUSTED", "403", "PERMISSION_DENIED"]):
                         next_index = st.session_state["current_key_index"] + 1
                         if next_index < len(GEMINI_API_KEYS):
                             st.session_state["current_key_index"] = next_index
                             st.warning("⚠️ বর্তমান ফ্রি এআই সার্ভারের কোটা শেষ হওয়ায় ব্যাকআপ সার্ভারে সুইচ করা হয়েছে। অনুগ্রহ করে আর একবার আপনার প্রশ্নটি সাবমিট করুন।")
                         else:
-                            st.session_state["current_key_index"] = 0
-                            st.error("❌ দুঃখিত, যুক্ত করা সবকটি এআই কী-এর লিমিট এই মুহূর্তের জন্য শেষ। দয়া করে কিছুক্ষণ পর চেষ্টা করুন।")
-                    else:
-                        st.error(f"দুঃখিত, উত্তর তৈরিতে সাময়িক সমস্যা হয়েছে। এরর: {error_msg}")
+                            st
